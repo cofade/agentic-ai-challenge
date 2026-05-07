@@ -43,7 +43,7 @@ def test_ticket_metadata_allows_extra_fields() -> None:
     raw = {"product": "WSCAD Suite", "vendor_internal_id": "X-99"}
     meta = TicketMetadata.model_validate(raw)
     parsed = TicketMetadata.model_validate_json(meta.model_dump_json())
-    assert parsed.model_dump()["vendor_internal_id"] == "X-99"
+    assert parsed.__pydantic_extra__ == {"vendor_internal_id": "X-99"}
 
 
 def test_ticket_round_trip() -> None:

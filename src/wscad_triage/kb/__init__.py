@@ -1,4 +1,4 @@
-"""Knowledge-base subpackage: loader + sentence-level chunker.
+"""Knowledge-base subpackage: loader + sentence-level chunker + retrievers.
 
 Public surface:
 
@@ -12,11 +12,15 @@ Public surface:
 - :func:`build_detector` — factory for the en/de language detector; expose
   this so callers that drive ``chunk_document`` directly can reuse one
   detector across many documents.
+- :class:`BM25` — sparse retriever over a chunk list. The dense and fused
+  (RRF) retrievers land in issues #11 / #12 under the same module.
+- :func:`tokenize` — the BM25 tokenizer; exposed so retrieval-adjacent code
+  (and tests) can reproduce the exact token stream BM25 sees.
 
-The split between :mod:`wscad_triage.kb.loader` and :mod:`wscad_triage.kb.chunker`
-mirrors the building-block view at ``docs/05-building-block-view/README.md``.
-The NLP toolchain choice (``pysbd`` + ``lingua-language-detector``) is documented
-in ADR-003.
+The split between :mod:`wscad_triage.kb.loader`, :mod:`wscad_triage.kb.chunker`,
+and :mod:`wscad_triage.kb.retriever` mirrors the building-block view at
+``docs/05-building-block-view/README.md``. The NLP toolchain choice is
+documented in ADR-003; the hybrid RAG strategy in ADR-006.
 """
 
 from wscad_triage.kb.chunker import (
@@ -27,8 +31,10 @@ from wscad_triage.kb.chunker import (
     segment_sentences,
 )
 from wscad_triage.kb.loader import RawDoc, load_documents, parse_frontmatter
+from wscad_triage.kb.retriever import BM25, tokenize
 
 __all__ = [
+    "BM25",
     "RawDoc",
     "build_detector",
     "chunk_document",
@@ -37,4 +43,5 @@ __all__ = [
     "load_kb",
     "parse_frontmatter",
     "segment_sentences",
+    "tokenize",
 ]

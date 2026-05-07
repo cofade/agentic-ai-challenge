@@ -57,9 +57,9 @@ def test_chunk_id_format_is_source_hash_index() -> None:
         idx = int(suffix)
         seen_indices[chunk.source_file].append(idx)
     for source, indices in seen_indices.items():
-        assert indices == list(
-            range(len(indices))
-        ), f"chunk indices for {source} are not 0..N-1: {indices}"
+        assert indices == list(range(len(indices))), (
+            f"chunk indices for {source} are not 0..N-1: {indices}"
+        )
 
 
 def test_chunk_counts_per_fixture_doc() -> None:

@@ -1,5 +1,6 @@
 """WSCAD ticket-triage agent package."""
 
+from wscad_triage.kb import load_kb
 from wscad_triage.schemas import (
     Category,
     Classification,
@@ -31,4 +32,5 @@ __all__ = [
     "TicketMetadata",
     "TicketState",
     "__version__",
+    "load_kb",
 ]

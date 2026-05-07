@@ -48,7 +48,7 @@ The CLI itself (`uv run wscad-triage tickets/tickets.json`) is a stub today; it 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — the build plan; one entry per GitHub Issue, organised by phase.
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map and the LangGraph diagram of the supervisor + workers topology.
-- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Two are Accepted today: ADR-001 (language and runtime) and ADR-002 (schema conventions); the rest are pending and land alongside the components they document.
+- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Three are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), and ADR-003 (KB NLP toolchain); the rest are pending and land alongside the components they document.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 

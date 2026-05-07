@@ -1,0 +1,1 @@
+The license has expired and must be renewed. Die Lizenz ist abgelaufen und muss erneuert werden. Please contact support for assistance. Bitte wenden Sie sich an den Support, um Hilfe zu erhalten. Die WSCAD SUITE 2025 unterstützt offline-Lizenzen für alle Produktlinien. The recommended fix is to reactivate via the License Manager dialog.

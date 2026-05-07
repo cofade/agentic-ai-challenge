@@ -63,16 +63,48 @@ For permanent instrumentation, use `src/wscad_triage/observability.py` which emi
 
 | Step | Action | Notes |
 |------|--------|-------|
-| 1 | Enter Plan Mode | Produce a plan before writing code, especially for any non-trivial issue. |
-| 2 | Read the issue | Understand acceptance criteria fully before starting; ask if unclear. |
-| 3 | Create feature branch | `git checkout -b feature/issue-N-short-description`. |
-| 4 | Implement | Run quality checks incrementally — `uv run pytest`, `ruff`, `mypy` after each meaningful change. |
-| 5 | Pre-commit checks pass | All hooks green: ruff lint, ruff format, mypy, bandit, pytest. |
-| 6 | Senior-reviewer agent runs and returns "mergeable" | See "Pre-PR quality gates" below. Loop until clean. |
-| 7 | Commit and PR | Conventional commit: `feat(#N): short description` or `chore(#N): ...`. PR body includes `Closes #N`. |
-| 8 | Clear context | `/clear` after merge — start each issue clean. |
+| 1 | Read the issue | Understand acceptance criteria fully before starting; ask if unclear. |
+| 2 | Enter Plan Mode | Produce a plan before writing code, especially for any non-trivial issue. |
+| 3 | Move issue to **Doing** | The moment the plan is approved, move the GitHub Project status from `To Do` → `Doing`. Do this *before* creating the branch. |
+| 4 | Create feature branch | `git checkout -b feature/issue-N-short-description`. Always branch off `main`; never commit on `main` directly. |
+| 5 | Implement | Run quality checks incrementally — `uv run pytest`, `ruff`, `mypy` after each meaningful change. |
+| 6 | Pre-commit checks pass | All hooks green: ruff lint, ruff format, mypy, bandit, pytest. |
+| 7 | Senior-reviewer agent runs and returns "mergeable" | See "Pre-PR quality gates" below. Loop until clean. |
+| 8 | Push branch + open PR | Conventional commit: `feat(#N): short description` or `chore(#N): ...`. PR body uses `Refs #N` (**not** `Closes #N`) — the user's manual-test pass is what closes the issue, not PR merge. |
+| 9 | Move issue to **Resolved** | Project status `Doing` → `Resolved` once the PR is open. Implementation is finished but awaiting the user's manual verification. |
+| 10 | User manually tests | The user runs the change locally and confirms it works as intended. Do not self-mark anything as Closed before this. |
+| 11 | Merge, close issue, move to **Closed** | After the user signs off: merge the PR, run `gh issue close N`, and set the project card to `Closed`. |
+| 12 | Clear context | `/clear` after merge — start each issue clean. |
 
-**Never commit before pre-commit hooks pass. Never open a PR before the senior-reviewer verdict is clean.**
+**Never push directly to `main`.** Every change ships through a PR from a feature branch — no exceptions, including docs-only or "trivial" edits. The only commit that ever lands on `main` outside this flow is the one bootstrap commit that already exists.
+
+**Never commit before pre-commit hooks pass. Never open a PR before the senior-reviewer verdict is clean. Never close an issue before the user has manually verified the change.**
+
+### Project board state machine
+
+| State | Meaning |
+|-------|---------|
+| `To Do` | Issue is in the backlog, plan not yet approved. |
+| `Doing` | Plan is approved and an agent is actively implementing. Exactly one issue per agent should be in `Doing` at a time. |
+| `Resolved` | Implementation is complete and the PR is open. Awaiting the user's manual test. |
+| `Closed` | User has manually verified the change; PR is merged; issue is closed. |
+
+### Useful gh commands for the board
+
+```bash
+# Find the project item id for an issue
+gh project item-list 2 --owner cofade --format json | jq '.items[] | select(.content.number == N)'
+
+# Move an issue (replace ITEM_ID, FIELD_ID, OPTION_ID with the values from the field-list call)
+gh project item-edit --id ITEM_ID --project-id PVT_kwHOAyyXvs4BXCTE \
+  --field-id PVTSSF_lAHOAyyXvs4BXCTEzhSR_U8 --single-select-option-id OPTION_ID
+
+# Status option ids:
+#   To Do     f75ad846
+#   Doing     61e4505c
+#   Resolved  47fc9ee4
+#   Closed    98236657
+```
 
 ## Quality Checks (run before every commit)
 

@@ -1,0 +1,18 @@
+[
+  {
+    "ticket_id": "T-001",
+    "text": "Application fails to start after update. Error 504 appears.",
+    "metadata": {
+      "product": "WSCAD Suite",
+      "version": "2.3",
+      "os": "Windows 11"
+    }
+  },
+  {
+    "ticket_id": "T-002",
+    "text": "License stopped working on an offline machine.",
+    "metadata": {
+      "product": "WSCAD Suite"
+    }
+  }
+]

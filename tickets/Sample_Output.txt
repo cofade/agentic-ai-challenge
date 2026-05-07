@@ -1,0 +1,83 @@
+SAMPLE OUTPUT
+=============
+
+Input Ticket:
+-------------
+Ticket ID: T-001
+Text: "Application fails to start after update. Error 504 appears."
+Metadata:
+- Product: WSCAD Suite
+- Version: 2.3
+- OS: Windows 11
+
+
+Agentic AI Output:
+------------------
+Ticket ID: T-001
+
+Category: Licensing
+Priority: High
+
+Proposed Solution:
+The startup failure is likely caused by missing or expired licensing information.
+Error code 504 is associated with licensing validation issues after updates.
+Please open the License Manager and re-activate the offline license.
+If the issue persists, verify that the license matches version 2.3.
+
+Confidence:
+0.81
+
+Reasoning Trace:
+- Error code 504 detected in ticket text
+- Retrieved relevant context from:
+  - "Common_Errors.md"
+  - "Licensing_Offline_Activation.md"
+- Both documents indicate a strong link between error 504 and expired licenses
+
+Follow-up Questions:
+- Is the system using an offline or online license?
+- Was the license reactivated after the update?
+
+SAMPLE OUTPUT#2
+=============
+Input Ticket:
+-------------
+Ticket ID: T-003
+Text: "The application crashes immediately after installation."
+Metadata:
+- Product: WSCAD Suite
+- Version: not provided
+- OS: not provided
+
+
+Agentic AI Output:
+------------------
+Ticket ID: T-003
+
+Category: Installation
+Priority: Medium
+
+Status:
+Insufficient information to determine root cause with acceptable confidence.
+
+Preliminary Assessment:
+The application crash may be caused by an unsupported operating system,
+a missing .NET runtime, or an incompatible application version.
+Multiple plausible root causes exist based on the available information.
+
+Confidence:
+0.32
+
+Reasoning Trace:
+- Ticket text indicates a crash immediately after installation
+- No operating system version provided
+- No application version provided
+- Knowledge base documents indicate strict OS and runtime requirements
+- Retrieved relevant context from:
+  - "Installation_Requirements.md"
+
+Required Follow-up Questions:
+1. Which operating system and version is the application installed on?
+2. Which version of WSCAD Suite was installed?
+3. Does the crash produce any error message or log?
+4. Is the required .NET runtime installed on the system?

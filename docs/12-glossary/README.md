@@ -3,7 +3,7 @@
 | Term | Definition |
 |------|------------|
 | **Agentic** | An LLM-driven system in which the LLM (the *agent*) decides the next action — including which tool to call — based on the current state. Distinguished from a hardcoded "prompt chain" where the developer specifies the call sequence in advance. |
-| **ADR** | Architecture Decision Record. A short, immutable document capturing the context, decision, and consequences of a non-trivial architectural choice. See [`docs/09-architecture-decisions/`](09-architecture-decisions/). |
+| **ADR** | Architecture Decision Record. A short, immutable document capturing the context, decision, and consequences of a non-trivial architectural choice. See [`../09-architecture-decisions/`](../09-architecture-decisions/). |
 | **arc42** | A documentation template for software architectures with twelve numbered sections (introduction, constraints, context, solution strategy, building blocks, runtime view, deployment view, concepts, decisions, quality requirements, risks, glossary). This project uses sections 1, 5, 6, 9, 11, 12. |
 | **BM25** | Best-Matching 25, a classical sparse-retrieval ranking function based on term-frequency / inverse-document-frequency with length normalisation. Strong on keyword anchors (e.g., error codes). |
 | **Chunk** | A unit of retrievable text. In this project, chunks are individual sentences with provenance metadata (source path, position, language). |

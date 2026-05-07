@@ -49,13 +49,14 @@ For permanent instrumentation, use `src/wscad_triage/observability.py` which emi
 
 | Need | Location |
 |------|----------|
+| All documentation (start here) | [`docs/`](docs/) |
 | The product roadmap (source of truth for issues) | [`docs/ROADMAP.md`](docs/ROADMAP.md) |
-| System purpose, scope, evaluation criteria | [`docs/01-introduction-and-goals.md`](docs/01-introduction-and-goals.md) |
+| System purpose, scope, evaluation criteria | [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) |
 | Component structure and LangGraph diagram | [`docs/05-building-block-view/`](docs/05-building-block-view/) |
 | Runtime sequences (happy path, clarify path) | [`docs/06-runtime-view/`](docs/06-runtime-view/) |
 | Architecture decisions (ADRs) | [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) |
 | Known limitations and technical debt | [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) |
-| Domain glossary (RAG, RRF, BM25, agentic, ...) | [`docs/12-glossary.md`](docs/12-glossary.md) |
+| Domain glossary (RAG, RRF, BM25, agentic, ...) | [`docs/12-glossary/`](docs/12-glossary/) |
 | The original challenge brief PDF | [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) |
 
 ## Workflow

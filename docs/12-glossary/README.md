@@ -7,7 +7,7 @@
 | **arc42** | A documentation template for software architectures with twelve numbered sections (introduction, constraints, context, solution strategy, building blocks, runtime view, deployment view, concepts, decisions, quality requirements, risks, glossary). This project uses sections 1, 5, 6, 9, 11, 12. |
 | **BM25** | Best-Matching 25, a classical sparse-retrieval ranking function based on term-frequency / inverse-document-frequency with length normalisation. Strong on keyword anchors (e.g., error codes). |
 | **Chunk** | A unit of retrievable text. In this project, chunks are individual sentences with provenance metadata (source path, position, language). |
-| **Confidence** | A 0–1 score on the system's own output. Computed as `min(rubric_score, verifier_score)`; thresholds (0.5, 0.7) decide between clarify-mode and solution-mode. See ADR-005 (pending). |
+| **Confidence** | A 0–1 score on the system's own output. Computed as `min(rubric_score, verifier_score)`; thresholds (0.5, 0.7) decide between clarify-mode and solution-mode. See ADR-006 (pending). |
 | **Grounding** | The property that every claim in a proposed solution is supported by an explicitly cited KB chunk. Enforced by the verifier agent. |
 | **KB** | Knowledge Base. The local Markdown corpus that is the *only* authoritative source of facts the system may rely on. |
 | **LangGraph** | A library that builds stateful agent graphs over LangChain primitives. Used here for the supervisor + workers topology with explicit state transitions. |

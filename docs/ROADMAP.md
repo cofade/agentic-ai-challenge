@@ -25,11 +25,11 @@ Set up the project skeleton and the six engineering layers (context, quality gat
 Type-safe data contracts and the retrieval primitives the agents will share. No LLM calls yet; everything in this phase is deterministic and unit-testable.
 
 - **#8 Pydantic schemas + ADR-002 (schema conventions).** `TicketMetadata`, `Ticket`, `KBChunk`, `RetrievalResult`, `Classification`, `ReasoningStep`, `Output`, `TicketState`. Acceptance: schemas in `src/wscad_triage/schemas.py`; round-trip JSON test for every schema; mypy clean; ADR-002 documents the closed-`Literal`/`extra="forbid"`/cross-field-validator conventions.
-- **#9 KB loader + sentence chunker.** Reads `.md` files from `kb/`, parses optional YAML frontmatter, sentence-tokenises, returns `list[KBChunk]` with provenance (`source_path`, `chunk_index`, `language`). Acceptance: unit tests verify chunk counts, frontmatter extraction, language detection on bilingual docs.
+- **#9 KB loader + sentence chunker + ADR-003 (NLP toolchain).** Reads `.md` files from `kb/`, parses optional YAML frontmatter, sentence-tokenises, returns `list[KBChunk]` with provenance (`source_path`, `chunk_index`, `language`). Acceptance: unit tests verify chunk counts, frontmatter extraction, language detection on bilingual docs; ADR-003 documents the `pysbd` + `lingua-language-detector` choice.
 - **#10 BM25 retriever.** `rank_bm25` over chunks; `retrieve(query, k) -> list[RetrievalResult]`. Acceptance: unit tests assert "Error 504" retrieves the licensing chunk top-1.
 - **#11 Multilingual embedding retriever.** `paraphrase-multilingual-MiniLM-L12-v2` (or equivalent); cached embeddings in `.cache/embeddings/`. Acceptance: cold-start computes & caches; warm-start loads from cache; cross-lingual query test (DE query against EN docs returns plausible match).
 - **#12 Hybrid retriever with Reciprocal Rank Fusion.** `HybridRetriever` composes BM25 and embeddings; RRF combines ranks. Acceptance: unit test asserts RRF returns top-k that consistently includes the strongest result from either single retriever.
-- **#13 ADR-005 — Hybrid RAG strategy.** Acceptance: ADR documents the choice with context, decision, consequences; cross-referenced from `docs/09-architecture-decisions/README.md`.
+- **#13 ADR-006 — Hybrid RAG strategy.** Acceptance: ADR documents the choice with context, decision, consequences; cross-referenced from `docs/09-architecture-decisions/README.md`.
 
 ## Phase 2 — KB extension via ELECTRIX AI release notes
 
@@ -52,7 +52,7 @@ Provider-agnostic LLM client and the worker agents themselves. Tests use a deter
 - **#23 Verifier agent (groundedness safety gate).** LLM-as-judge; for each claim in the proposed solution, decides whether it is grounded in the cited chunk; returns a 0–1 grounding score and per-claim verdicts. Acceptance: ungrounded-claim test ticket triggers `< 0.4` grounding score and forces a clarify outcome.
 - **#24 Supervisor + LangGraph state graph + `pipeline.py`.** Supervisor is an LLM agent with tool definitions for each worker; supervisor's tool calls drive the next node; graph terminates when supervisor returns `Finalize`. Acceptance: `pipeline.run(ticket)` returns a complete `Output`; LangGraph state diagram exported to `docs/05-building-block-view/`.
 - **#25 Integration tests with deterministic mocked LLM.** `tests/integration/` covers: resolvable ticket (high-confidence solution), clarify-required ticket, multilingual ticket, ungrounded-claim trap, missing-OS metadata. Acceptance: all integration tests pass without network access.
-- **#26 ADRs 003 / 004 / 007 — provider abstraction, supervisor topology, groundedness gate.** Acceptance: three ADRs committed; cross-referenced from README.
+- **#26 ADRs 004 / 005 / 008 — provider abstraction, supervisor topology, groundedness gate.** Acceptance: three ADRs committed; cross-referenced from README.
 
 ## Phase 4 — Confidence, output, CLI
 
@@ -62,7 +62,7 @@ Make the system runnable end-to-end and produce the deliverable artifacts.
 - **#28 Final-confidence aggregation: `min(rubric_score, verifier_score)`.** Threshold defaults: `< 0.5` clarify, `0.5–0.7` solution-with-caveats, `> 0.7` solution. Acceptance: unit test asserts ungrounded-claim ticket lands below 0.5.
 - **#29 JSON writer + Sample_Output.txt-style text renderer.** Pydantic `model_dump_json` for the canonical artifact; renderer formats human-readable text mirroring `tickets/Sample_Output.txt`. Acceptance: snapshot test compares rendered text format against an approved fixture.
 - **#30 CLI (`wscad-triage`).** `wscad-triage <tickets.json> [--out out/] [--provider anthropic|azure]`. Acceptance: running on `tickets/tickets.json` produces `out/T-001.json`, `out/T-001.txt`, `out/T-002.json`, `out/T-002.txt`.
-- **#31 ADRs 006 / 008 — confidence quantification, multilingual KB.** Acceptance: two ADRs committed.
+- **#31 ADRs 007 / 009 — confidence quantification, multilingual KB.** Acceptance: two ADRs committed.
 
 ## Phase 5 — Evaluation harness
 
@@ -71,7 +71,7 @@ Quantitative ground truth for the README's claims.
 - **#32 Author 15–20 hand-labeled tickets.** Coverage: resolvable EN, resolvable DE, clarify (missing OS), clarify (vague crash), licensing-vs-installation ambiguity, ungrounded-claim trap, multilingual mixed. Stored at `tickets/eval_set.json` with `expected_category`, `expected_priority`, `should_clarify` fields. Acceptance: ≥ 15 tickets; balance across the seven listed cases.
 - **#33 `eval/runner.py` and `eval/metrics.py`.** Runs pipeline over the eval set; emits per-ticket results plus aggregated metrics (category accuracy, priority accuracy, clarification precision/recall, mean grounded confidence, calibration data). Acceptance: `uv run python -m eval.runner` runs end-to-end against the eval set without errors and writes `eval/results/latest.json`.
 - **#34 Run eval; record baseline numbers in README.** Acceptance: README includes a "Baseline metrics" subsection citing the latest run and noting that numbers are illustrative, not promises.
-- **#35 ADR-009 — evaluation harness.** Acceptance: ADR documents the rubric, dataset construction, known limitations.
+- **#35 ADR-010 — evaluation harness.** Acceptance: ADR documents the rubric, dataset construction, known limitations.
 
 ## Phase 6 — Documentation polish
 
@@ -79,7 +79,7 @@ Make the reviewer's first 5 minutes excellent.
 
 - **#36 Author the reviewer-facing README.** Sections: 30-second mental model, quickstart (clone → `uv sync` → `cp .env.example .env` → `uv run wscad-triage tickets/tickets.json`), architecture diagram (Mermaid), trade-offs and what we deliberately did NOT do, baseline metrics, links to ADRs and arc42. Acceptance: a new user can run the system in under 5 minutes.
 - **#37 Fill the arc42 docs.** Concretise `01-introduction-and-goals/README.md`, `05-building-block-view/README.md` (Mermaid of the LangGraph), `06-runtime-view/ticket-flow.md` (happy + clarify sequences), `11-risks-and-technical-debt/README.md`, `12-glossary/README.md`. Acceptance: each file has at least one paragraph of non-placeholder content; cross-references resolve.
-- **#38 Cross-reference ADRs from README; index in `docs/09-architecture-decisions/README.md`.** Acceptance: ADR index lists all nine ADRs with one-line summaries; README links into the ADR index from the architecture section.
+- **#38 Cross-reference ADRs from README; index in `docs/09-architecture-decisions/README.md`.** Acceptance: ADR index lists all ten ADRs with one-line summaries; README links into the ADR index from the architecture section.
 
 ## Phase 7 — Final review & submission
 

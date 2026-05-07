@@ -1,0 +1,1 @@
+Die Anwendung startet erfolgreich auf unterstützten Betriebssystemen. Benutzer sollten ihren Lizenzstatus vor dem Start überprüfen. Bitte wenden Sie sich an den Support, falls die Anwendung nicht startet.

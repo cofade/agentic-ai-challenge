@@ -11,7 +11,7 @@ ADRs capture decisions whose rationale is not obvious from the code. Each ADR ha
 | 003 | [KB NLP toolchain: pysbd + lingua-language-detector](ADR-003-kb-nlp-toolchain.md) | Accepted | Phase 1 |
 | 004 | Provider-agnostic LLM client; Anthropic default, Azure OpenAI as production target | Pending | Phase 3 |
 | 005 | Supervisor + workers topology in LangGraph (over linear pipeline / single ReAct) | Pending | Phase 3 |
-| 006 | Hybrid RAG: BM25 + multilingual embeddings + Reciprocal Rank Fusion | Pending | Phase 1 |
+| 006 | [Hybrid RAG: BM25 + multilingual embeddings + Reciprocal Rank Fusion](ADR-006-hybrid-rag.md) | Accepted | Phase 1 |
 | 007 | Confidence = min(rubric_score, verifier_score) with thresholds 0.5 / 0.7 | Pending | Phase 4 |
 | 008 | Groundedness safety gate (verifier agent) at the end of the pipeline | Pending | Phase 3 |
 | 009 | Multilingual KB; multilingual MiniLM embeddings | Pending | Phase 4 |

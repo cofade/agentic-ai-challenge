@@ -19,8 +19,7 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# uv
-uv.lock
+# uv: keep uv.lock committed for reproducible installs (locally and in CI).
 
 # Project artifacts
 .cache/

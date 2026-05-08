@@ -18,7 +18,7 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.13.0
+    rev: v2.0.0
     hooks:
       - id: mypy
         files: ^src/
@@ -29,6 +29,7 @@ repos:
           - pysbd>=0.3.4
           - lingua-language-detector>=2.0
           - rank-bm25>=0.2.2
+          - numpy>=2.0
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.10

@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 2 — KB extension
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13)
-**In progress:** Phase 2 issues #14, #15, #16 (KB corpus extension + multi-version retrieval)
-**Next up:** Phase 3 — LLM abstraction & agents
+**Current phase:** Phase 3 — LLM abstraction & agents
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md))
+**In progress:** Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18); PR2 (#19–#23) and PR3 (#24, #25, #26) follow
+**Next up:** Phase 3 PR2 — five worker agents + ADR-008
 
 (Update this section at the start of each session.)
 
@@ -139,7 +139,7 @@ All five must pass. Fix failures before proceeding.
 - **Pydantic at every boundary.** All ticket I/O, KB chunks, agent inputs/outputs, and the final `Output` are typed Pydantic models. The pipeline never passes raw `dict` between agents.
 - **Knowledge base is the only authoritative source.** Agents may not introduce facts that are not present in retrieved KB chunks. The verifier agent enforces this; the rubric penalises it.
 - **Supervisor decides; workers execute.** Agentic routing lives in the LangGraph supervisor's tool-call decisions, not in hardcoded transitions. New worker agents are added by registering tools, not by editing routing logic.
-- **Configuration over code.** Confidence-rubric weights, thresholds, retrieval `k`, and provider selection live in `config.yaml`. Code reads from a typed `Settings` object; nothing is magically hardcoded.
+- **Configuration over code.** A typed `Settings` object is the single source of runtime config. Provider selection and credentials come from environment variables / `.env` (Phase 3, see [ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)); confidence-rubric weights, thresholds, and retrieval `k` move into `config.yaml` with Phase 4 issue #27. Nothing is magically hardcoded.
 - **Deterministic core; LLM at the edges.** Retrieval, chunking, scoring math, output rendering are deterministic and unit-tested. LLM calls are mocked in tests and gated behind a real-key environment for live integration.
 
 ## Known AI Pitfalls

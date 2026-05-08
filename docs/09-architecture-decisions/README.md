@@ -14,7 +14,7 @@ ADRs capture decisions whose rationale is not obvious from the code. Each ADR ha
 | 006 | [Hybrid RAG: BM25 + multilingual embeddings + Reciprocal Rank Fusion](ADR-006-hybrid-rag.md) | Accepted | Phase 1 |
 | 007 | Confidence = min(rubric_score, verifier_score) with thresholds 0.5 / 0.7 | Pending | Phase 4 |
 | 008 | Groundedness safety gate (verifier agent) at the end of the pipeline | Pending | Phase 3 |
-| 009 | Multilingual KB; multilingual MiniLM embeddings | Pending | Phase 4 |
+| 009 | Multilingual KB content strategy (DE + EN scope, language tagging at chunk level) | Pending | Phase 4 |
 | 010 | Hand-labeled 15–20 ticket eval set + rubric metrics | Pending | Phase 5 |
 
 ## ADR template

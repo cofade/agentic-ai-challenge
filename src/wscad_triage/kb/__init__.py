@@ -12,8 +12,9 @@ Public surface:
 - :func:`build_detector` — factory for the en/de language detector; expose
   this so callers that drive ``chunk_document`` directly can reuse one
   detector across many documents.
-- :class:`BM25` — sparse retriever over a chunk list. The dense and fused
-  (RRF) retrievers land in issues #11 / #12 under the same module.
+- :class:`BM25` — sparse retriever over a chunk list.
+- :class:`Embedding` — dense multilingual retriever with on-disk cache.
+  Composes with BM25 via the RRF :class:`HybridRetriever` (issue #12).
 - :func:`tokenize` — the BM25 tokenizer; exposed so retrieval-adjacent code
   (and tests) can reproduce the exact token stream BM25 sees.
 
@@ -31,10 +32,11 @@ from wscad_triage.kb.chunker import (
     segment_sentences,
 )
 from wscad_triage.kb.loader import RawDoc, load_documents, parse_frontmatter
-from wscad_triage.kb.retriever import BM25, tokenize
+from wscad_triage.kb.retriever import BM25, Embedding, tokenize
 
 __all__ = [
     "BM25",
+    "Embedding",
     "RawDoc",
     "build_detector",
     "chunk_document",

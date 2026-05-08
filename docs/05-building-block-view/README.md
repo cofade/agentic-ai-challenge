@@ -15,7 +15,7 @@ graph TD
     Supervisor -->|tool: finalize| Verify[agents.verify]
     Retrieve --> KB[kb.retriever HybridRetriever]
     KB --> BM25[kb.retriever.BM25]
-    KB --> Embed[kb.embeddings.Multilingual]
+    KB --> Embed[kb.retriever.Embedding]
     Verify --> Output[output.json_writer / text_renderer]
     Triage & Retrieve & Reason & Clarify & Verify -.->|LLM calls| Client[llm.client.LLMClient]
     Client --> Anthropic[llm.anthropic_backend]
@@ -38,8 +38,7 @@ The diagram is updated when the supervisor's tool set changes (every time a new 
 | `agents.verify` | Groundedness safety gate; per-claim verdict + 0–1 grounding score. | `src/wscad_triage/agents/verify.py` (Phase 3) |
 | `kb.loader` | Loads `.md` files, parses YAML frontmatter, returns `RawDoc` objects. | `src/wscad_triage/kb/loader.py` (Phase 1) |
 | `kb.chunker` | Sentence-level chunking with provenance metadata. | `src/wscad_triage/kb/chunker.py` (Phase 1) |
-| `kb.retriever` | BM25 + multilingual embeddings + RRF; the `HybridRetriever` API. | `src/wscad_triage/kb/retriever.py` (Phase 1) |
-| `kb.embeddings` | `paraphrase-multilingual-MiniLM-L12-v2` wrapper with on-disk cache. | `src/wscad_triage/kb/embeddings.py` (Phase 1) |
+| `kb.retriever` | `BM25` (sparse), `Embedding` (multilingual MiniLM with on-disk cache), and `HybridRetriever` (RRF, Phase 1 / issue #12). All three implement `retrieve(query, k) -> list[RetrievalResult]`. | `src/wscad_triage/kb/retriever.py` (Phase 1) |
 | `llm.client` | Provider-agnostic LLM interface; deterministic mock for tests. | `src/wscad_triage/llm/client.py` (Phase 3) |
 | `llm.anthropic_backend` | Anthropic SDK adapter with prompt caching for KB context. | `src/wscad_triage/llm/anthropic_backend.py` (Phase 3) |
 | `llm.azure_openai_backend` | Azure OpenAI adapter (production target). | `src/wscad_triage/llm/azure_openai_backend.py` (Phase 3) |

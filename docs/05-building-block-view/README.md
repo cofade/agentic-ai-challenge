@@ -7,22 +7,68 @@ The system is a single Python package, `wscad_triage`, organised into orthogonal
 ```mermaid
 graph TD
     CLI[cli.py] --> Pipeline[pipeline.py]
-    Pipeline --> Supervisor[agents.supervisor]
-    Supervisor -->|tool: triage| Triage[agents.triage]
-    Supervisor -->|tool: retrieve| Retrieve[agents.retrieve]
-    Supervisor -->|tool: reason| Reason[agents.reason]
-    Supervisor -->|tool: clarify| Clarify[agents.clarify]
-    Supervisor -->|tool: finalize| Verify[agents.verify]
+    Pipeline --> Graph[LangGraph state graph]
+    Graph --> Supervisor[agents.supervisor routing fns]
+    Graph --> Triage[agents.triage]
+    Graph --> Retrieve[agents.retrieve]
+    Graph --> Reason[agents.reason]
+    Graph --> Clarify[agents.clarify]
+    Graph --> Verify[agents.verify]
     Retrieve --> KB[kb.retriever HybridRetriever]
     KB --> BM25[kb.retriever.BM25]
     KB --> Embed[kb.retriever.Embedding]
-    Verify --> Output[output.json_writer / text_renderer]
+    Pipeline --> Output[output.json_writer / text_renderer]
     Triage & Retrieve & Reason & Clarify & Verify -.->|LLM calls| Client[llm.client.LLMClient]
     Client --> Anthropic[llm.anthropic_backend]
     Client --> Azure[llm.azure_openai_backend]
 ```
 
-The diagram is updated when the supervisor's tool set changes (every time a new worker agent is added).
+The supervisor module exposes routing functions and finalize sinks; LangGraph wires them as conditional edges and terminal nodes. See [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md) for why the supervisor is deterministic in Phase 3 (vs. an LLM-as-supervisor) and how a future PR can swap LLM-mediated decisions in per-edge.
+
+## LangGraph state diagram
+
+This is the actual graph compiled by `pipeline.build_graph(...)`. Solid arrows are direct edges; dashed arrows are conditional edges driven by `supervisor.route_after_triage` and `supervisor.route_after_verify`.
+
+```mermaid
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	triage(triage)
+	retrieve(retrieve)
+	reason(reason)
+	clarify(clarify)
+	verify(verify)
+	finalize_solve(finalize_solve)
+	finalize_clarify(finalize_clarify)
+	finalize_clarify_downgrade(finalize_clarify_downgrade)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> triage;
+	clarify --> finalize_clarify;
+	reason --> verify;
+	retrieve --> reason;
+	triage -.-> clarify;
+	triage -.-> retrieve;
+	verify -.-> finalize_clarify_downgrade;
+	verify -.-> finalize_solve;
+	finalize_clarify --> __end__;
+	finalize_clarify_downgrade --> __end__;
+	finalize_solve --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
+```
+
+Regenerate after a topology change:
+
+```bash
+uv run python -c "from unittest.mock import Mock; from wscad_triage.pipeline import build_graph; print(build_graph(Mock(), Mock()).get_graph().draw_mermaid())"
+```
+
+Paste the output above the regeneration command. The graph is committed (not auto-rendered at doc-build time) so changes are visible in PR diffs.
 
 ## Building blocks
 
@@ -30,7 +76,7 @@ The diagram is updated when the supervisor's tool set changes (every time a new 
 |-------|----------------|----------|
 | `cli` | Click entry point; loads tickets, runs the pipeline, writes output. | [`src/wscad_triage/cli.py`](../../src/wscad_triage/cli.py) |
 | `pipeline` | Builds and compiles the LangGraph state graph; runs a single ticket end-to-end. | `src/wscad_triage/pipeline.py` (Phase 3) |
-| `agents.supervisor` | LLM agent with tool definitions for each worker; decides the next action each turn. | `src/wscad_triage/agents/supervisor.py` (Phase 3) |
+| `agents.supervisor` | Deterministic routing fns + three finalize sinks; LangGraph wires them via conditional edges. See [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md). | `src/wscad_triage/agents/supervisor.py` (Phase 3) |
 | `agents.triage` | Initial classification + metadata-completeness assessment. | `src/wscad_triage/agents/triage.py` (Phase 3) |
 | `agents.retrieve` | Wraps `HybridRetriever`; reformulates ticket text into a retrieval query. | `src/wscad_triage/agents/retrieve.py` (Phase 3) |
 | `agents.reason` | Drafts the proposed solution; produces a claim-to-evidence map. | `src/wscad_triage/agents/reason.py` (Phase 3) |

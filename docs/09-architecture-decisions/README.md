@@ -10,7 +10,7 @@ ADRs capture decisions whose rationale is not obvious from the code. Each ADR ha
 | 002 | [Schema conventions for the typed-contract layer](ADR-002-schema-conventions.md) | Accepted | Phase 1 |
 | 003 | [KB NLP toolchain: pysbd + lingua-language-detector](ADR-003-kb-nlp-toolchain.md) | Accepted | Phase 1 |
 | 004 | [Provider-agnostic LLM client; Anthropic default, Azure OpenAI as production target](ADR-004-llm-provider-abstraction.md) | Accepted | Phase 3 |
-| 005 | Supervisor + workers topology in LangGraph (over linear pipeline / single ReAct) | Pending | Phase 3 |
+| 005 | [Supervisor + workers topology in LangGraph (over linear pipeline / single ReAct)](ADR-005-supervisor-topology.md) | Accepted | Phase 3 |
 | 006 | [Hybrid RAG: BM25 + multilingual embeddings + Reciprocal Rank Fusion](ADR-006-hybrid-rag.md) | Accepted | Phase 1 |
 | 007 | Confidence = min(rubric_score, verifier_score) with thresholds 0.5 / 0.7 | Pending | Phase 4 |
 | 008 | [Groundedness safety gate (verifier agent) at the end of the pipeline](ADR-008-groundedness-gate.md) | Accepted | Phase 3 |

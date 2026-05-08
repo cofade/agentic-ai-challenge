@@ -201,6 +201,7 @@ class TicketState(BaseModel):
     draft_solution: DraftSolution | None = None
     verifier_verdict: VerifierVerdict | None = None
     proposed_solution: str | None = None
+    preliminary_assessment: str | None = None
     followup_questions: list[str] = Field(default_factory=list)
     reasoning_trace: list[ReasoningStep] = Field(default_factory=list)
     confidence_components: dict[str, float] = Field(default_factory=dict)

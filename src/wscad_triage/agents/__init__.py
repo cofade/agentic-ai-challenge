@@ -23,6 +23,6 @@ Convention pinned by ADR-008 and the Phase-3 super-plan:
   retry policy.
 """
 
-from wscad_triage.agents import clarify, reason, retrieve, triage, verify
+from wscad_triage.agents import clarify, reason, retrieve, supervisor, triage, verify
 
-__all__ = ["clarify", "reason", "retrieve", "triage", "verify"]
+__all__ = ["clarify", "reason", "retrieve", "supervisor", "triage", "verify"]

@@ -128,9 +128,9 @@ All five must pass. Fix failures before proceeding.
 ## Progress Tracking
 
 **Current phase:** Phase 3 — LLM abstraction & agents
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50)
-**In progress:** Phase 3 PR2 — five worker agents + ADR-008 (#19, #20, #21, #22, #23)
-**Next up:** Phase 3 PR3 — supervisor + LangGraph + integration tests + ADR-005 (#24, #25, #26)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50); Phase 3 PR2 — five worker agents + ADR-008 (#19, #20, #21, #22, #23, PR #51)
+**In progress:** Phase 3 PR3 — supervisor + LangGraph + integration tests + ADR-005 (#24, #25, #26)
+**Next up:** Phase 4 — confidence formula + JSON/text rendering + CLI (#27, #28, #29, #30, #31)
 
 (Update this section at the start of each session.)
 
@@ -138,7 +138,7 @@ All five must pass. Fix failures before proceeding.
 
 - **Pydantic at every boundary.** All ticket I/O, KB chunks, agent inputs/outputs, and the final `Output` are typed Pydantic models. The pipeline never passes raw `dict` between agents.
 - **Knowledge base is the only authoritative source.** Agents may not introduce facts that are not present in retrieved KB chunks. The verifier agent enforces this; the rubric penalises it.
-- **Supervisor decides; workers execute.** Agentic routing lives in the LangGraph supervisor's tool-call decisions, not in hardcoded transitions. New worker agents are added by registering tools, not by editing routing logic.
+- **Supervisor decides; workers execute.** Each worker is itself an LLM agent emitting structured tool calls (`emit_classification`, `emit_draft`, `emit_questions`, `emit_verdict`); the supervisor stitches them together via a LangGraph state graph. Phase 3 ships [ADR-005](docs/09-architecture-decisions/ADR-005-supervisor-topology.md) with deterministic routing functions on `TicketState`; LLM-mediated decisions are a per-edge swap-in if Phase 5 eval shows the static thresholds underperform. New workers are added by registering a node + edge — not by editing routing logic.
 - **Configuration over code.** A typed `Settings` object is the single source of runtime config. Provider selection and credentials come from environment variables / `.env` (Phase 3, see [ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)); confidence-rubric weights, thresholds, and retrieval `k` move into `config.yaml` with Phase 4 issue #27. Nothing is magically hardcoded.
 - **Deterministic core; LLM at the edges.** Retrieval, chunking, scoring math, output rendering are deterministic and unit-tested. LLM calls are mocked in tests and gated behind a real-key environment for live integration.
 

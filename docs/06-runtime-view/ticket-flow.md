@@ -1,46 +1,61 @@
 # 6. Runtime View — ticket flow
 
-The two canonical execution paths through the supervisor are the **resolvable** path and the **clarification-required** path. Both are described below as the supervisor's tool-call decisions, not as a hardcoded sequence — the supervisor may interleave calls (e.g., retrieve again after the verifier flags ungrounded claims).
+Three canonical execution paths through the LangGraph state machine — the **resolvable** path, the **clarification-required (missing-fields)** path, and the **hallucination-trap (downgrade)** path. Routing decisions are deterministic functions on `TicketState` (see [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md)); the static state diagram lives in [`../05-building-block-view/`](../05-building-block-view/).
 
-This document is filled in fully during Phase 3 (issue #24); for now it captures the intended sequences so the supervisor's prompt can target them precisely.
+The placeholder confidence used in Phase 3 is the verifier's grounding score for solve outcomes and a fixed 0.3 for clarify outcomes. Phase 4 issue #28 replaces both with `min(rubric_score, verifier_score)`.
 
 ## Resolvable path (high confidence)
 
 ```
-1. Supervisor receives ticket → calls triage
-2. Triage classifies tentatively, reports metadata completeness as adequate
-3. Supervisor calls retrieve(query reformulated from ticket text)
-4. Retrieve returns top-k chunks with provenance
-5. Supervisor calls reason(chunks)
-6. Reason drafts solution + claim-to-evidence map
-7. Supervisor calls finalize → verify
-8. Verify: all claims grounded → high grounding score
-9. Confidence = min(rubric, verifier) ≥ 0.7 → solution emitted with brief caveats
-10. Output (JSON + text) written
+1.  Pipeline.run(ticket) compiles the graph and invokes it
+2.  triage runs: classifies category + priority; deterministic
+    metadata-gap pass yields no gaps
+3.  Conditional edge route_after_triage -> "retrieve"
+4.  retrieve runs: LLM rewrites the ticket into a focused query;
+    HybridRetriever returns top-k KB chunks with provenance
+5.  reason runs: drafts a solution; emits one ClaimEvidence per claim;
+    layer-1 (a) verifies every chunk_id is in state.retrievals;
+    layer-1 (b) verifies every quote is a substring of its chunk text
+6.  verify runs: LLM-as-judge per claim; aggregate grounding_score >= 0.4
+7.  Conditional edge route_after_verify -> "finalize_solve"
+8.  finalize_solve sets resolution_kind="solve",
+    proposed_solution=draft.solution, final_confidence=grounding_score
+9.  pipeline.state_to_output projects the final TicketState onto an Output
+    (cited_sources derived from claim chunk_ids' source files)
+10. Output (JSON + text rendering, Phase 4 #29) written
 ```
 
-## Clarification path (low confidence)
+## Clarification-required path (missing critical fields)
 
 ```
-1. Supervisor receives ticket → calls triage
-2. Triage flags critical missing fields (e.g., OS, version)
-3. Supervisor calls retrieve (still useful; returns weak hits)
-4. Supervisor evaluates: rubric metadata-completeness component is low
-5. Supervisor calls clarify
-6. Clarify produces 2–4 targeted follow-up questions
-7. Supervisor calls finalize → verify (no solution to verify; grounding score N/A)
-8. Confidence < 0.5 → clarification-required output emitted (no solution)
-9. Output (JSON + text) written; reasoning trace explicitly states the gaps
+1. Pipeline.run(ticket) compiles the graph and invokes it
+2. triage runs: classifies category + priority; deterministic
+   metadata-gap pass populates missing_critical_fields (e.g. ["os"])
+3. Conditional edge route_after_triage -> "clarify"
+4. clarify runs: generates 2-4 follow-up questions, each addressing
+   a listed gap by whole-word match (or registered synonym)
+5. Direct edge clarify -> "finalize_clarify"
+6. finalize_clarify sets resolution_kind="clarify",
+   preliminary_assessment=<rationale + gaps>,
+   final_confidence=0.3 (placeholder, ADR-005)
+7. pipeline.state_to_output emits Output with followup_questions
 ```
 
-## Hallucination-trap path (verifier intervenes)
+The retriever is never called on this path — saving a vector-DB round-trip on tickets we can't answer until the user supplies the missing fields. The clarify worker's precondition (non-empty `missing_critical_fields`) is preserved by the routing decision.
+
+## Hallucination-trap path (verifier downgrade)
 
 ```
-1..6. Same as resolvable path
-7. Supervisor calls finalize → verify
-8. Verify: ≥1 claim is ungrounded; grounding score drops below threshold
-9. Final confidence = min(rubric, verifier) < 0.5
-10. Supervisor downgrades to clarify-mode: emits a clarification request, lists the unverified claims as gaps
+1..5. Same as resolvable path: triage (no gaps) -> retrieve -> reason
+6.    verify runs: aggregate grounding_score < 0.4 (ADR-008 threshold)
+7.    Conditional edge route_after_verify -> "finalize_clarify_downgrade"
+8.    finalize_clarify_downgrade sets resolution_kind="clarify",
+      preliminary_assessment="Could not confidently propose a solution: ...",
+      followup_questions stays empty,
+      final_confidence=0.3 (placeholder, ADR-005)
+9.    pipeline.state_to_output emits the clarify-shaped Output
 ```
 
-The verifier is the safety gate that closes the loop on hallucination — even if the rubric component is high, an ungrounded solution triggers clarify-mode.
+The downgrade path **does not** re-route through the clarify worker. The clarify worker's gap-matcher would reject questions about ungrounded claims (those aren't `missing_critical_fields`), and synthesising fake gaps to satisfy the matcher would obscure what actually went wrong. Instead the supervisor's `finalize_clarify_downgrade` sink synthesises a fixed-shape `preliminary_assessment` listing the verifier's ungrounded claims directly.
+
+The verifier is the safety gate that closes the loop on hallucination — even when retrieval looks adequate, an ungrounded solution triggers clarify-mode rather than shipping a confidently-wrong answer (ADR-008).

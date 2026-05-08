@@ -26,7 +26,14 @@ SYNTH_VALID = frozenset({"True", "False"})
 
 
 def _all_files() -> list[Path]:
-    files = sorted(ELECTRIX_KB.rglob("*.md"))
+    """List every ``*.md`` directly under ``ELECTRIX_KB``.
+
+    Non-recursive on purpose: the corpus contract for Phase 2 is one flat
+    directory of ``v<version>[.<lang>].md`` files. If a future change
+    nests a subdirectory, the validation contract needs to be revisited
+    explicitly — silent recursion would let unintended files slip in.
+    """
+    files = sorted(ELECTRIX_KB.glob("*.md"))
     assert files, f"Phase 2 KB directory must contain at least one .md file: {ELECTRIX_KB}"
     return files
 

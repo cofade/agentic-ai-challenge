@@ -39,6 +39,8 @@ Extend the corpus with one Markdown file per ELECTRIX AI version sourced from <h
 - **#15 Validate scrape; fall back to hand-curated notes if parsing fails.** Acceptance: every file in `kb/electrix_ai_release_notes/` has valid frontmatter; if scrape fails, 6–8 plausible synthetic notes labelled `synthetic_for_demo: true`.
 - **#16 Re-run retriever tests against extended corpus; tune chunking if needed.** Acceptance: existing tests still pass; one new test exercises retrieval over a multi-version query (e.g., "what changed for license activation in v7.3.2?").
 
+> **Phase 2 shipped state.** The live scrape returned `HTTP 403` (bot-protected), so per the all-or-nothing fallback in ADR-003 (Phase 2 section) the corpus shipped as **six hand-authored synthetic notes** (4 EN + 2 DE) tagged `synthetic_for_demo: true` — not 14 scraped notes. The 14-version target above is the original intent; current reality is recorded in `docs/11-risks-and-technical-debt/README.md`. Re-running the scrape (e.g. browser-based copy/paste) and replacing the corpus wholesale closes this gap; the consistency test at `tests/unit/test_kb_corpus.py::test_synthetic_for_demo_is_consistent_across_corpus` enforces that the swap leaves no half-real / half-synthetic state.
+
 ## Phase 3 — LLM abstraction & agents
 
 Provider-agnostic LLM client and the worker agents themselves. Tests use a deterministic mock backend; live providers are gated behind environment-loaded API keys.

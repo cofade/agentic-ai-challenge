@@ -1,6 +1,6 @@
-# ADR-004: Provider-agnostic LLM client; Anthropic default, Azure OpenAI as production target
+# ADR-004: Provider-agnostic LLM client; Ollama default for local dev, Anthropic for cloud dev, Azure OpenAI as production target
 
-- **Date:** 2026-05-08
+- **Date:** 2026-05-08 (revised 2026-05-08 — see Revisions)
 - **Status:** Accepted
 
 ## Context
@@ -90,20 +90,28 @@ This is the boundary type for the LLM layer. The cost is a thin translation
 layer in each backend. The benefit is that adding a third provider, or
 swapping a model family, never touches an agent.
 
-### 3. Anthropic is the default; Azure OpenAI is a documented stub
+### 3. Three backends; provider chosen via `WSCAD_TRIAGE_PROVIDER`
 
-`AnthropicBackend` is the production code path. It supports prompt caching
-via the `cache=True` flag on `Message`, which sets
-`cache_control={"type": "ephemeral"}` on the corresponding content block.
-Agents put the (large, stable) KB chunks behind a cache marker and the
-(small, per-request) ticket text after it.
-
-`AzureOpenAIBackend` raises `ConfigurationError` on construction with a
-message naming `WSCAD_TRIAGE_PROVIDER=anthropic` as the resolution. The
-class still implements the Protocol so the factory's type-narrowing path
-stays clean; failure is at startup, not mid-pipeline. Full implementation
-is tracked as future work — the acceptance criterion in the ROADMAP is met
-by the documented-stub branch of issue #18.
+- **Ollama (default)** — self-hosted, runs against a local server.
+  `OllamaBackend` (issue #55) is the default because the pipeline must be
+  runnable without a paid API account: clone the repo,
+  `ollama pull gpt-oss:20b`, and the workers' tool-use round-trips work.
+  Tested model: `gpt-oss:20b`. Tool-use is supported but model-dependent
+  — smaller open-weight models (qwen2.5:7b, llama3.1:8b, mistral:7b) can
+  emit malformed JSON arguments. The risks doc maintains the
+  recommended-model list.
+- **Anthropic** — cloud, paid. `AnthropicBackend` is the cheapest cloud
+  path because of prompt caching: any `Message` with `cache=True` is sent
+  with `cache_control={"type": "ephemeral"}` on its content block. Agents
+  put the (large, stable) KB chunks behind a cache marker and the
+  (small, per-request) ticket text after it.
+- **Azure OpenAI** — production target, stub today. `AzureOpenAIBackend`
+  raises `ConfigurationError` on construction with a message naming
+  `WSCAD_TRIAGE_PROVIDER=anthropic` as the resolution. The class still
+  implements the Protocol so the factory's type-narrowing path stays
+  clean; failure is at startup, not mid-pipeline. Full implementation is
+  tracked as future work — the acceptance criterion in the ROADMAP is
+  met by the documented-stub branch of issue #18.
 
 ### 4. `MockLLMClient` for tests; no silent fallthrough
 
@@ -126,12 +134,38 @@ prefix-matching on the system message; this ADR does not prescribe.
 ### 5. Provider selection via `pydantic-settings`
 
 `Settings` (in `src/wscad_triage/settings.py`) reads
-`WSCAD_TRIAGE_PROVIDER`, `ANTHROPIC_API_KEY`,
+`WSCAD_TRIAGE_PROVIDER`, `WSCAD_TRIAGE_OLLAMA_*`, `ANTHROPIC_API_KEY`,
 `WSCAD_TRIAGE_ANTHROPIC_MODEL`, and `AZURE_OPENAI_*` from environment or
 `.env`. `make_client(settings) -> LLMClient` dispatches on
-`settings.llm_provider`. Phase 3 keeps the config surface tight — no
-`config.yaml` yet; that arrives with Phase 4 issue #27, which layers the
-rubric weights and threshold knobs onto the same `Settings` object.
+`settings.llm_provider`. The Ollama branch is permissive — no
+fail-fast credential check; the runtime contract is the local server's
+reachability, validated lazily on the first `generate()` call. The
+Anthropic branch fail-fasts when `ANTHROPIC_API_KEY` is missing.
+Phase 3 keeps the config surface tight — no `config.yaml` yet; that
+arrives with Phase 4 issue #27, which layers the rubric weights and
+threshold knobs onto the same `Settings` object.
+
+### 6. Backend equivalence is by Protocol, not feature parity
+
+The three backends satisfy the same `LLMClient` Protocol but differ in
+provider-specific niceties. Pinned explicitly so a reviewer reading just
+one backend module knows what is and isn't equivalent across providers:
+
+- `Message.cache=True` is **honoured by Anthropic** (sets
+  `cache_control={"type": "ephemeral"}`); **silently ignored by Ollama
+  and the Azure stub**. Agents must not depend on the flag being
+  honoured for correctness — only for cost/latency on the Anthropic path.
+- `ToolCall.id` is **provider-supplied for Anthropic** (the
+  `block.id` from `tool_use` content blocks); **synthesised (UUID4) for
+  Ollama** (the SDK doesn't emit one). Tests must not assert on stable
+  ids; assert on uniqueness instead.
+- `ToolCall.arguments` arrives as a dict in **all** backends. Ollama
+  returns it as a dict natively; Anthropic returns a dict via
+  `block.input`. (OpenAI-compatible APIs return a JSON-encoded string;
+  if a future backend uses that wire shape, the adapter parses to a
+  dict at the boundary.)
+- Streaming is **unsupported on the Protocol today** for all three. The
+  Future work section tracks the migration.
 
 ## Consequences
 
@@ -148,13 +182,20 @@ rubric weights and threshold knobs onto the same `Settings` object.
   `RuntimeError` on unmatched triggers is the only line of defence against
   a regression where an agent silently chooses the wrong tool — the
   integration test scenarios depend on it.
-- **Negative.** Two backends advertise themselves as `LLMClient` but only
-  one runs. Reviewers may interpret the Azure stub as completion-by-name;
-  the README "Configuration" section names the constraint explicitly to
-  avoid that read.
+- **Negative.** The Azure stub advertises itself as `LLMClient` but does
+  not run. Reviewers may interpret it as completion-by-name; the README
+  "Configuration" section names the constraint explicitly to avoid that
+  read.
 - **Negative.** Provider-agnostic types lose vendor-specific niceties.
   Anthropic's tool-result-with-image content is not expressible in the
   current `Message` type; if a future agent needs it, the type widens.
+- **Negative — Ollama tool-use fidelity is model-dependent.** The
+  `gpt-oss:20b` default works in practice; smaller open-weight models
+  (qwen2.5:7b, llama3.1:8b, mistral:7b) have visibly worse tool-call
+  reliability and can emit malformed JSON arguments that fail the
+  workers' Pydantic validation. The risks doc tracks the
+  recommended-model list; Phase 5 (#34) will add a per-model
+  fidelity benchmark over the labelled eval set.
 - **Locked-in.** Every Phase 3 agent's signature takes `LLMClient`.
   Replacing the Protocol with an ABC or with a function-only interface is
   a refactor across `src/wscad_triage/agents/`. Anticipated; the
@@ -176,3 +217,18 @@ rubric weights and threshold knobs onto the same `Settings` object.
 - **Prompt-caching efficiency.** Today caching is mechanically wired but
   not tuned. Phase 5's eval harness will measure the cost gap with /
   without caching once the agent prompts stabilise.
+- **Per-model tool-use fidelity benchmark for Ollama.** Phase 5 (#34)
+  measures whether `gpt-oss:20b` and the smaller candidates (`qwen2.5:14b`,
+  `llama3.1:8b`) all pass the five-scenario integration suite live.
+  Updates the recommended-model list in the risks doc when results land.
+
+## Revisions
+
+- **2026-05-08** — added Ollama as a third backend (issue #55), switched
+  the default provider from Anthropic to Ollama so the pipeline is
+  runnable offline against a local server. ADR-004 was edited in place
+  rather than superseded; the original 2-provider rationale survives
+  unchanged in §1, §2, §4, §5. The §3 "Decision" was rewritten from
+  "Anthropic default; Azure stub" to "three backends; provider chosen
+  via env var". A new §6 documents which features are
+  honoured-vs-ignored across the three backends.

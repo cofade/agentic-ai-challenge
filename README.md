@@ -6,14 +6,14 @@ An agentic AI ticket-triage system: processes technical support tickets, retriev
 
 ## Status
 
-**Phase 0 — Bootstrap: complete.** The repo's six engineering layers (context, quality gates, docs, CI, review workflow, entropy management) are in place. The agentic core itself is not yet implemented; build progress is tracked on [project board #2](https://github.com/users/cofade/projects/2).
+**Phase 0 — Bootstrap: complete.** The repo's six engineering layers (context, quality gates, docs, CI, review workflow, entropy management) are in place. The agentic core itself is under construction; build progress is tracked on [project board #2](https://github.com/users/cofade/projects/2).
 
 | Phase | What it delivers | State |
 |-------|------------------|-------|
 | 0 | Bootstrap (this layer) | Done |
-| 1 | Pydantic schemas + KB foundation (loader, chunker, BM25, embeddings, hybrid retriever) | Open |
-| 2 | KB extension (ELECTRIX AI release notes scrape) | Open |
-| 3 | LLM abstraction + supervisor and worker agents in LangGraph | Open |
+| 1 | Pydantic schemas + KB foundation (loader, chunker, BM25, embeddings, hybrid retriever) | Done |
+| 2 | KB extension (ELECTRIX AI release notes; synthetic — see [risks doc](docs/11-risks-and-technical-debt/README.md)) | Done |
+| 3 | LLM abstraction + supervisor and worker agents in LangGraph | In progress |
 | 4 | Confidence aggregation, output renderers, CLI | Open |
 | 5 | Hand-labeled eval set + metrics harness | Open |
 | 6 | Reviewer-facing README, arc42 fill-in, ADR cross-refs | Open |
@@ -42,13 +42,29 @@ uv run bandit -r src/ --severity-level high
 
 The CLI itself (`uv run wscad-triage tickets/tickets.json`) is a stub today; it lands with [issue #30](https://github.com/cofade/agentic-ai-challenge/issues/30) at the close of Phase 4.
 
+## Configuration
+
+Phase 3 introduces a provider-agnostic LLM client (see [ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)). Copy `.env.example` to `.env` and set the keys for the provider you want to use:
+
+```bash
+cp .env.example .env
+# then edit .env to set ANTHROPIC_API_KEY (default provider)
+```
+
+Provider selection is `WSCAD_TRIAGE_PROVIDER=anthropic|azure`:
+
+- **`anthropic`** (default) — production code path. Uses the Anthropic SDK with prompt caching for KB context.
+- **`azure`** — Azure OpenAI is named as the production target in the brief but ships as a documented stub today; constructing the backend raises `ConfigurationError`. Full implementation is deferred ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md), "Future work").
+
+Tests use a deterministic `MockLLMClient` and never hit the network. The single `live_api`-marked smoke test at `tests/integration/test_anthropic_live.py` is **deselected by default** via `addopts = ["-m", "not live_api"]` in `pyproject.toml`; opt in with `ANTHROPIC_API_KEY=... uv run pytest -m live_api`. If `-m live_api` is selected without an API key, the test calls `pytest.skip()` and exits cleanly.
+
 ## Where to read further
 
 - [`docs/`](docs/) — architecture documentation in arc42 style. Start with [`docs/README.md`](docs/README.md).
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — the build plan; one entry per GitHub Issue, organised by phase.
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map and the LangGraph diagram of the supervisor + workers topology.
-- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Four are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), and ADR-006 (hybrid RAG strategy); the rest are pending and land alongside the components they document.
+- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Five are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction), and ADR-006 (hybrid RAG strategy); the rest are pending and land alongside the components they document.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 

@@ -20,6 +20,7 @@ dependencies = [
     "rank-bm25>=0.2.2",
     "sentence-transformers>=3.0.0",
     "numpy>=1.26",
+    "anthropic>=0.40.0",
 ]
 
 [project.optional-dependencies]
@@ -116,6 +117,8 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
+    "-m",
+    "not live_api",
 ]
 markers = [
     "integration: tests that exercise the full pipeline (mocked LLM allowed)",

@@ -123,15 +123,14 @@ def test_rrf_top_k_includes_top1_from_each_retriever_via_stubs() -> None:
     assert {"a.md#0", "b.md#0"} <= ids
 
 
-def test_pool_widening_surfaces_consensus_picks(tmp_path: Path) -> None:
-    """Pool of ``2*k`` per layer surfaces consensus picks that pool-of-``k`` would drop.
+def test_pool_widening_surfaces_consensus_picks() -> None:
+    """A consensus pick at rank-2-in-both wins the hybrid top-1.
 
     Stubs are constructed so a chunk ranked 2 in both retrievers — fused
     score ``2/(60+2)`` — outranks chunks ranked 1 in only one — fused
-    score ``1/(60+1)``. With pool=k=1 (the previous, narrower implementation)
-    the consensus pick at rank 2 would be dropped from the candidate pool;
-    pool=2*k=2 surfaces it. This pins the pool-sizing decision in the
-    constructor (see ``RRF_POOL_MULTIPLIER`` in ``kb/retriever.py``).
+    score ``1/(60+1)``. The widened pool (``RRF_POOL_MULTIPLIER * k``)
+    is what makes the rank-2 chunk visible at all; with pool=k=1 it
+    would not be in the candidate set.
     """
     a = _chunk("a.md#0", "alpha")  # BM25 rank 1 only
     b = _chunk("b.md#0", "beta")  # Embedding rank 1 only

@@ -5,10 +5,15 @@ Phase 4 (#27) layers the rubric weights and threshold knobs on top via
 :mod:`wscad_triage.llm.factory` can build the right backend.
 
 Values are read from environment variables and an optional ``.env`` file.
-The env-var names match the existing ``.env.example`` template authored in
-Phase 0:
+The env-var names match the existing ``.env.example`` template:
 
-- ``WSCAD_TRIAGE_PROVIDER`` — provider selection (``anthropic`` | ``azure``).
+- ``WSCAD_TRIAGE_PROVIDER`` — provider selection
+  (``ollama`` | ``anthropic`` | ``azure``); default ``ollama`` so the
+  pipeline is runnable offline against a local server (issue #55).
+- ``WSCAD_TRIAGE_OLLAMA_BASE_URL`` / ``WSCAD_TRIAGE_OLLAMA_MODEL`` /
+  ``WSCAD_TRIAGE_OLLAMA_TIMEOUT`` — Ollama server config; defaults
+  point at ``localhost:11434`` and the project's tested model
+  (``gpt-oss:20b``).
 - ``ANTHROPIC_API_KEY`` — Anthropic credential (the SDK's convention name).
 - ``WSCAD_TRIAGE_ANTHROPIC_MODEL`` — model id; defaults to a current Sonnet.
 - ``AZURE_OPENAI_API_KEY`` / ``AZURE_OPENAI_ENDPOINT`` /
@@ -24,7 +29,7 @@ from typing import Literal
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-LLMProvider = Literal["anthropic", "azure"]
+LLMProvider = Literal["ollama", "anthropic", "azure"]
 
 
 class Settings(BaseSettings):
@@ -37,7 +42,14 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    llm_provider: LLMProvider = Field(default="anthropic", alias="WSCAD_TRIAGE_PROVIDER")
+    llm_provider: LLMProvider = Field(default="ollama", alias="WSCAD_TRIAGE_PROVIDER")
+
+    ollama_base_url: str = Field(
+        default="http://localhost:11434", alias="WSCAD_TRIAGE_OLLAMA_BASE_URL"
+    )
+    ollama_model: str = Field(default="gpt-oss:20b", alias="WSCAD_TRIAGE_OLLAMA_MODEL")
+    ollama_timeout_seconds: float = Field(default=120.0, alias="WSCAD_TRIAGE_OLLAMA_TIMEOUT")
+
     anthropic_model: str = Field(default="claude-sonnet-4-6", alias="WSCAD_TRIAGE_ANTHROPIC_MODEL")
     anthropic_api_key: SecretStr | None = Field(default=None, alias="ANTHROPIC_API_KEY")
 

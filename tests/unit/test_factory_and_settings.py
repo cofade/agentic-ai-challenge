@@ -15,13 +15,17 @@ from wscad_triage.llm import (
     AnthropicBackend,
     AzureOpenAIBackend,
     ConfigurationError,
+    OllamaBackend,
     make_client,
 )
 from wscad_triage.settings import Settings
 
 
 def _settings(**overrides: object) -> Settings:
-    """Build Settings with explicit overrides; env is already scrubbed by conftest."""
+    """Build Settings with explicit Anthropic overrides for tests that exercise
+    the Anthropic dispatch path. Env is already scrubbed by conftest, so the
+    fields not overridden here fall back to module defaults.
+    """
     base: dict[str, object] = {
         "WSCAD_TRIAGE_PROVIDER": "anthropic",
         "ANTHROPIC_API_KEY": "sk-test",
@@ -30,24 +34,75 @@ def _settings(**overrides: object) -> Settings:
     return Settings(_env_file=None, **base)  # type: ignore[call-arg]
 
 
-def test_settings_defaults_when_provider_unset() -> None:
+def test_settings_overridden_to_anthropic() -> None:
+    """Explicit override puts us on the Anthropic path."""
     s = _settings()
     assert s.llm_provider == "anthropic"
     assert s.anthropic_model == "claude-sonnet-4-6"
     assert isinstance(s.anthropic_api_key, SecretStr)
 
 
-def test_settings_defaults_with_no_overrides() -> None:
-    """With env scrubbed and no overrides, defaults apply and key is None."""
+def test_settings_default_provider_is_ollama() -> None:
+    """No-override default is Ollama (issue #55) — runnable offline.
+
+    Pinned because flipping the default back to a paid provider would
+    silently regress contributor onboarding (clone-and-run breaks).
+    """
     s = Settings(_env_file=None)  # type: ignore[call-arg]
-    assert s.llm_provider == "anthropic"
+    assert s.llm_provider == "ollama"
     assert s.anthropic_api_key is None
+
+
+def test_settings_ollama_defaults() -> None:
+    """gpt-oss:20b is the project's tested model; localhost:11434 is the
+    Ollama daemon's default port. Both are pinned to catch a silent change
+    that would put a different model in front of the workers without a
+    fidelity benchmark.
+    """
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert s.ollama_base_url == "http://localhost:11434"
+    assert s.ollama_model == "gpt-oss:20b"
+    assert s.ollama_timeout_seconds == 120.0
+
+
+def test_settings_ollama_overrides_via_env() -> None:
+    s = Settings(  # type: ignore[call-arg]
+        _env_file=None,
+        WSCAD_TRIAGE_OLLAMA_BASE_URL="http://gpu-host:11434",
+        WSCAD_TRIAGE_OLLAMA_MODEL="qwen2.5:14b",
+        WSCAD_TRIAGE_OLLAMA_TIMEOUT=300.0,
+    )
+    assert s.ollama_base_url == "http://gpu-host:11434"
+    assert s.ollama_model == "qwen2.5:14b"
+    assert s.ollama_timeout_seconds == 300.0
 
 
 def test_settings_reads_aliased_env_names() -> None:
     s = _settings(WSCAD_TRIAGE_PROVIDER="azure", AZURE_OPENAI_DEPLOYMENT="dep1")
     assert s.llm_provider == "azure"
     assert s.azure_openai_deployment == "dep1"
+
+
+def test_make_client_returns_ollama_backend_by_default() -> None:
+    """Default Settings select Ollama; the factory must dispatch accordingly."""
+    s = Settings(_env_file=None)  # type: ignore[call-arg]
+    client = make_client(s)
+    assert isinstance(client, OllamaBackend)
+    # Constructor parameters from Settings reach the backend.
+    assert client._model == "gpt-oss:20b"
+    assert client._base_url == "http://localhost:11434"
+
+
+def test_make_client_ollama_without_credentials_does_not_raise() -> None:
+    """Ollama requires no env-var credentials; the factory must not fail-fast.
+
+    The runtime contract is the local server's reachability, validated lazily
+    on the first ``generate()`` call. Mirrors AnthropicBackend's permissive
+    constructor; contrasts with the Azure stub.
+    """
+    s = Settings(_env_file=None, WSCAD_TRIAGE_PROVIDER="ollama")  # type: ignore[call-arg]
+    client = make_client(s)
+    assert isinstance(client, OllamaBackend)
 
 
 def test_make_client_returns_anthropic_backend_with_key() -> None:

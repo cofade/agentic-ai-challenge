@@ -3,7 +3,10 @@
 from wscad_triage.kb import load_kb
 from wscad_triage.schemas import (
     Category,
+    ClaimEvidence,
+    ClaimVerdict,
     Classification,
+    DraftSolution,
     KBChunk,
     Output,
     Priority,
@@ -14,13 +17,17 @@ from wscad_triage.schemas import (
     Ticket,
     TicketMetadata,
     TicketState,
+    VerifierVerdict,
 )
 
 __version__ = "0.1.0"
 
 __all__ = [
     "Category",
+    "ClaimEvidence",
+    "ClaimVerdict",
     "Classification",
+    "DraftSolution",
     "KBChunk",
     "Output",
     "Priority",
@@ -31,6 +38,7 @@ __all__ = [
     "Ticket",
     "TicketMetadata",
     "TicketState",
+    "VerifierVerdict",
     "__version__",
     "load_kb",
 ]

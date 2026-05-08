@@ -128,9 +128,9 @@ All five must pass. Fix failures before proceeding.
 ## Progress Tracking
 
 **Current phase:** Phase 3 — LLM abstraction & agents
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50)
-**In progress:** Phase 3 PR2 — five worker agents + ADR-008 (#19, #20, #21, #22, #23)
-**Next up:** Phase 3 PR3 — supervisor + LangGraph + integration tests + ADR-005 (#24, #25, #26)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50); Phase 3 PR2 — five worker agents + ADR-008 (#19, #20, #21, #22, #23, PR #51)
+**In progress:** Phase 3 PR3 — supervisor + LangGraph + integration tests + ADR-005 (#24, #25, #26)
+**Next up:** Phase 4 — confidence formula + JSON/text rendering + CLI (#27, #28, #29, #30, #31)
 
 (Update this section at the start of each session.)
 

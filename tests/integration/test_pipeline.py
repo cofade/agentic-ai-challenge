@@ -370,15 +370,18 @@ def test_ungrounded_claim_trap_downgrades_to_clarify(
 def test_missing_os_short_circuits_before_retrieval(
     mock_llm: Any, stub_retriever_factory: Any
 ) -> None:
-    """Single-gap clarify path. Distinct from scenario 2 (multi-gap) on
-    two axes: (a) the gap-matcher's whole-word logic must accept the
-    LLM's "operating system" synonym for the canonical gap "os" --
-    scenario 2 used both gaps explicitly and would pass even if the
-    matcher were broken, but this scenario fails if the synonym table
-    in clarify.py:_GAP_SYNONYMS regresses; (b) the retriever is
-    instantiated but provably never called -- saves a vector-DB
-    round-trip on tickets we can't answer until the user supplies the
-    missing field.
+    """Single-gap clarify path. Distinct from scenario 2 on two axes:
+
+    (a) Both questions resolve the canonical gap "os" via the synonym
+    "operating system" -- this fails if ``_GAP_SYNONYMS`` in
+    ``clarify.py`` regresses. Scenario 2's second question carries a
+    literal ``OS`` (whole-word match against the canonical name) and
+    so exercises the matcher's canonical-name path instead; the two
+    scenarios together cover both halves of the matcher.
+
+    (b) The retriever is instantiated but provably never called --
+    saves a vector-DB round-trip on tickets we can't answer until the
+    user supplies the missing field.
     """
     ticket = Ticket(
         ticket_id="T-005",

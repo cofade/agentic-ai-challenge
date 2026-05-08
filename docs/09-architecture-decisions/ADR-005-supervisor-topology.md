@@ -37,10 +37,15 @@ Constraints we have to satisfy regardless of choice:
   complete `Output`; a LangGraph state diagram is exported to
   `docs/05-building-block-view/`.
 - **Architecture Principle (`CLAUDE.md`).** "Supervisor decides;
-  workers execute. Agentic routing lives in the LangGraph
-  supervisor's tool-call decisions, not in hardcoded transitions.
-  New worker agents are added by registering tools, not by editing
-  routing logic."
+  workers execute" — workers are the LLM agents (each emitting a
+  structured tool call), the supervisor stitches them together via a
+  LangGraph state graph, and new workers are registered as nodes +
+  edges rather than by editing routing internals. The original
+  framing of this principle (before this ADR was accepted) read
+  routing as living "in the LangGraph supervisor's tool-call
+  decisions, not in hardcoded transitions"; this ADR is the place
+  where that original framing was deliberately revised to match the
+  shipped topology.
 - **ADR-008 groundedness gate.** When the verifier returns a score
   below 0.4, the outcome must be downgraded to clarify. Whatever
   routing surface we pick has to compose cleanly with this gate.
@@ -89,13 +94,15 @@ harder, and *every wrong call is a regression*. The
 literally as (b2); we intentionally diverge and document the
 divergence here.
 
-The CLAUDE.md "agentic routing in tool-call decisions" principle is
-preserved by the *workers*, not by the supervisor: each worker (triage,
+The CLAUDE.md "Supervisor decides; workers execute" principle is
+preserved by reading "workers execute" literally: each worker (triage,
 reason, clarify, verify) is itself an LLM agent that emits a structured
 tool call (`emit_classification`, `emit_draft`, `emit_questions`,
 `emit_verdict`). The supervisor is the deterministic glue between
 them — and the right place for that glue is exactly where it can be
-unit-tested without a mock LLM.
+unit-tested without a mock LLM. The CLAUDE.md sentence has since been
+rewritten to match this ADR; this paragraph remains as the rationale
+for the rewrite.
 
 ### Why this and not (b2) is also not "we never use an LLM here"
 

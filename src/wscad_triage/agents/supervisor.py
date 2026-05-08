@@ -27,8 +27,8 @@ CLARIFY_CONFIDENCE_PLACEHOLDER = 0.3
 """Placeholder for clarify outcomes until #28 lands ``min(rubric, verifier)``.
 
 Below the 0.5 threshold by construction so a clarify outcome never
-masquerades as a confident solve. # TODO(#28): replace with the rubric +
-verifier formula from Phase 4.
+masquerades as a confident solve. # TODO(#28): replace with
+``min(rubric, verifier)`` per ADR-007.
 """
 
 

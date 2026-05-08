@@ -1,5 +1,6 @@
 """WSCAD ticket-triage agent package."""
 
+from wscad_triage import pipeline
 from wscad_triage.kb import load_kb
 from wscad_triage.schemas import (
     Category,
@@ -41,4 +42,5 @@ __all__ = [
     "VerifierVerdict",
     "__version__",
     "load_kb",
+    "pipeline",
 ]

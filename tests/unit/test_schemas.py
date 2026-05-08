@@ -289,6 +289,17 @@ def test_ticket_state_with_draft_and_verdict_round_trip() -> None:
     assert_round_trip(state)
 
 
+def test_ticket_state_preliminary_assessment_round_trip() -> None:
+    """The clarify-downgrade path populates this field; the solve path leaves
+    it None. Pinned here so a refactor that drops the field fails loudly.
+    """
+    state = TicketState(
+        ticket=Ticket(ticket_id="T", text="x"),
+        preliminary_assessment="Need more info on OS and version.",
+    )
+    assert_round_trip(state)
+
+
 def test_ticket_state_round_trip() -> None:
     ticket = Ticket(
         ticket_id="T-001",

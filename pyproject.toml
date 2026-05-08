@@ -21,6 +21,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "numpy>=1.26",
     "anthropic>=0.40.0",
+    "langgraph>=0.2.0",
 ]
 
 [project.optional-dependencies]

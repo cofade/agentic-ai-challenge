@@ -219,24 +219,33 @@ def test_multiple_tool_calls_each_get_unique_uuid(
     assert all(ids)
 
 
-def test_done_reason_mapping_covers_known_values(
-    backend_with_response: tuple[OllamaBackend, _FakeOllamaClient],
-) -> None:
-    backend, fake = backend_with_response
-    cases = [
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
         ("stop", "end_turn"),
         ("length", "max_tokens"),
         ("tool_use", "tool_use"),
         ("tool_calls", "tool_use"),
         ("weird-future-value", "end_turn"),
-    ]
-    for raw, expected in cases:
-        _replace_response(
-            fake,
-            _FakeChatResponse(message=_FakeOllamaMessage(content="ok"), done_reason=raw),
-        )
-        out = backend.generate([Message(role="user", content="x")])
-        assert out.stop_reason == expected, f"Ollama done_reason={raw!r} should map to {expected!r}"
+    ],
+)
+def test_done_reason_mapping(
+    backend_with_response: tuple[OllamaBackend, _FakeOllamaClient],
+    raw: str,
+    expected: str,
+) -> None:
+    """Ollama's ``done_reason`` strings map onto the Protocol's ``StopReason``.
+
+    Parametrized so each case shows up as a distinct entry in CI when one
+    regresses.
+    """
+    backend, fake = backend_with_response
+    _replace_response(
+        fake,
+        _FakeChatResponse(message=_FakeOllamaMessage(content="ok"), done_reason=raw),
+    )
+    out = backend.generate([Message(role="user", content="x")])
+    assert out.stop_reason == expected
 
 
 def test_zero_token_counts_when_response_omits_them(
@@ -265,9 +274,15 @@ def test_tool_role_requires_tool_call_id(
         backend.generate([Message(role="tool", content="result")])
 
 
-def test_tool_role_emits_tool_call_id_on_payload(
+def test_tool_role_does_not_propagate_tool_call_id_to_payload(
     backend_with_response: tuple[OllamaBackend, _FakeOllamaClient],
 ) -> None:
+    """Ollama's :class:`ollama._types.Message` model has no ``tool_call_id``
+    field — the SDK silently drops it on serialisation. Pin that we don't
+    pretend to propagate something the SDK won't carry; correlation is by
+    ordering on this backend. See the ``_message_to_ollama`` docstring +
+    ADR-004 §6.
+    """
     backend, fake = backend_with_response
     backend.generate(
         [
@@ -279,8 +294,9 @@ def test_tool_role_emits_tool_call_id_on_payload(
     assert kwargs is not None
     tool_msg = kwargs["messages"][1]
     assert tool_msg["role"] == "tool"
-    assert tool_msg["tool_call_id"] == "abc"
     assert tool_msg["content"] == "result"
+    # Crucially: tool_call_id is NOT on the wire payload.
+    assert "tool_call_id" not in tool_msg
 
 
 def test_response_format_is_no_op_for_ollama(

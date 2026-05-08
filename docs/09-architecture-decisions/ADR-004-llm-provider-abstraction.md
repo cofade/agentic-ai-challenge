@@ -35,8 +35,9 @@ Constraints:
 
 ## Decision
 
-The LLM layer is a single `Protocol` with two real backends and a
-deterministic mock; provider selection is an env-var flip.
+The LLM layer is a single `Protocol` with three backends (two
+implemented — Ollama and Anthropic — plus the Azure documented stub) and
+a deterministic mock; provider selection is an env-var flip.
 
 ### 1. `LLMClient` is a `typing.Protocol`, not a class hierarchy
 
@@ -106,12 +107,13 @@ swapping a model family, never touches an agent.
   put the (large, stable) KB chunks behind a cache marker and the
   (small, per-request) ticket text after it.
 - **Azure OpenAI** — production target, stub today. `AzureOpenAIBackend`
-  raises `ConfigurationError` on construction with a message naming
-  `WSCAD_TRIAGE_PROVIDER=anthropic` as the resolution. The class still
-  implements the Protocol so the factory's type-narrowing path stays
-  clean; failure is at startup, not mid-pipeline. Full implementation is
-  tracked as future work — the acceptance criterion in the ROADMAP is
-  met by the documented-stub branch of issue #18.
+  raises `ConfigurationError` on construction redirecting the operator
+  to the two working providers (`ollama` default, `anthropic` if a paid
+  key is available). The class still implements the Protocol so the
+  factory's type-narrowing path stays clean; failure is at startup, not
+  mid-pipeline. Full implementation is tracked as future work — the
+  acceptance criterion in the ROADMAP is met by the documented-stub
+  branch of issue #18.
 
 ### 4. `MockLLMClient` for tests; no silent fallthrough
 
@@ -172,9 +174,11 @@ one backend module knows what is and isn't equivalent across providers:
 - **Positive.** Agents are provider-blind. Adding GPT-5, Mistral, or a
   local llama backend is one new file in `src/wscad_triage/llm/` plus a
   factory branch — no agent changes.
-- **Positive.** Test runs are deterministic and offline. The single
-  `live_api`-marked test exercises the real Anthropic SDK end-to-end;
-  every other test uses `MockLLMClient`, so CI does not need an API key.
+- **Positive.** Test runs are deterministic and offline. The
+  `live_api`-marked tests (one per implemented backend — Anthropic, plus
+  text + tool-use scenarios for Ollama) exercise the real SDKs end-to-end
+  on demand; every other test uses `MockLLMClient`, so CI does not need
+  an API key or a running Ollama server.
 - **Positive.** Prompt caching is on the boundary type, not buried in the
   Anthropic backend. When Azure ships, the Azure backend can ignore the
   flag (no caching on that provider) without changing agent code.
@@ -207,9 +211,9 @@ one backend module knows what is and isn't equivalent across providers:
   The migration: replace the constructor body in
   `src/wscad_triage/llm/azure_openai_backend.py` with a real client;
   implement `generate` against `AzureOpenAI.chat.completions.create`;
-  update `tests/integration/test_anthropic_live.py` to add a parallel
-  Azure smoke (or factor a parametrised live test). No agent or pipeline
-  code should change.
+  add `tests/integration/test_azure_live.py` alongside the existing
+  Anthropic and Ollama live smokes (or factor a parametrised live test
+  shared across the three). No agent or pipeline code should change.
 - **Streaming.** The current Protocol returns a complete `LLMResponse`.
   When latency-sensitive UIs (Phase 6+ if any) need streaming, add a
   separate `stream` method or replace `generate` with an async iterator
@@ -227,8 +231,26 @@ one backend module knows what is and isn't equivalent across providers:
 - **2026-05-08** — added Ollama as a third backend (issue #55), switched
   the default provider from Anthropic to Ollama so the pipeline is
   runnable offline against a local server. ADR-004 was edited in place
-  rather than superseded; the original 2-provider rationale survives
-  unchanged in §1, §2, §4, §5. The §3 "Decision" was rewritten from
-  "Anthropic default; Azure stub" to "three backends; provider chosen
-  via env var". A new §6 documents which features are
-  honoured-vs-ignored across the three backends.
+  rather than superseded. Concrete enumeration of edits (Title, Decision
+  intro, §3, §5, §6 new, Consequences, Future work):
+  - **Title** — rewrote from "Anthropic default, Azure OpenAI as
+    production target" to add Ollama as the local-dev default tier.
+  - **Decision intro** — counter changed from "two real backends" to
+    "three backends (two implemented + Azure stub)".
+  - **§3 "Anthropic is the default; Azure OpenAI is a documented stub"**
+    — rewrote in full to cover three backends; the Azure stub's
+    redirect-message guidance updated to point at Ollama (default) or
+    Anthropic (cloud).
+  - **§5 "Provider selection via `pydantic-settings`"** — added the
+    `WSCAD_TRIAGE_OLLAMA_*` env-var enumeration; added the
+    permissive-vs-fail-fast distinction (Ollama lazy on first
+    `generate()`, Anthropic eager on missing key, Azure eager via stub
+    `__init__`).
+  - **§6 (new) "Backend equivalence is by Protocol, not feature parity"**
+    — pins which `Message`/`ToolCall` fields are honoured vs ignored
+    across the three backends.
+  - **Consequences "Negative"** — added Ollama tool-use fidelity
+    risk; Future work — added per-model fidelity benchmark (#34).
+  - **Unchanged: §1 (Protocol), §2 (boundary types), §4
+    (MockLLMClient).** The original rationale for those sections still
+    applies verbatim.

@@ -33,7 +33,7 @@ broader consequence.
 from __future__ import annotations
 
 import uuid
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 import ollama
 
@@ -111,15 +111,21 @@ def _message_to_ollama(msg: Message) -> dict[str, Any]:
 
     Ollama supports ``system`` / ``user`` / ``assistant`` / ``tool`` roles
     natively; no system-message extraction step is needed (unlike Anthropic).
+
+    ``Message.tool_call_id`` is a precondition for ``role="tool"`` (we
+    raise if it's missing — that's a caller-side contract bug regardless
+    of which backend) but we deliberately do NOT propagate it onto the
+    wire: Ollama's :class:`ollama._types.Message` model has no
+    ``tool_call_id`` field; the SDK silently drops it. Ollama correlates
+    tool results to the prior assistant turn's tool calls by **ordering**.
+    For Phase 3 every worker emits exactly one tool call per turn, so
+    ordering is sufficient. If a future phase ships multi-tool turns on
+    Ollama, the :class:`ollama._types.Message` ``tool_name`` field is
+    where the tool's name (not id) would go — see ADR-004 §6 future work.
     """
     out: dict[str, Any] = {"role": msg.role, "content": msg.content}
-    if msg.role == "tool":
-        if msg.tool_call_id is None:
-            raise ValueError("tool messages require tool_call_id")
-        # Ollama's tool-result shape mirrors OpenAI's: tool_call_id round-trips
-        # through the ``tool_name`` field on the response message. The id we
-        # synthesised in _decode_response is what callers send back here.
-        out["tool_call_id"] = msg.tool_call_id
+    if msg.role == "tool" and msg.tool_call_id is None:
+        raise ValueError("tool messages require tool_call_id")
     return out
 
 
@@ -153,7 +159,9 @@ def _decode_response(response: ChatResponse) -> LLMResponse:
         ToolCall(
             id=str(uuid.uuid4()),
             name=tc.function.name,
-            arguments=cast(dict[str, Any], dict(tc.function.arguments)),
+            # ``dict(Mapping[str, Any])`` already gives us ``dict[str, Any]``;
+            # no cast needed.
+            arguments=dict(tc.function.arguments),
         )
         for tc in raw_calls
     ]

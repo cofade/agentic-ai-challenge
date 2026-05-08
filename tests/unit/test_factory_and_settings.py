@@ -124,7 +124,12 @@ def test_make_client_azure_raises_via_stub() -> None:
 
 
 def test_azure_backend_constructor_raises_directly() -> None:
-    with pytest.raises(ConfigurationError, match="WSCAD_TRIAGE_PROVIDER=anthropic"):
+    """Match on a stable substring so future changes to the redirect message
+    don't double-pin the wording. The contract is "raises with a usable
+    redirect to a working provider"; the exact provider names + ordering
+    are documentation, not API.
+    """
+    with pytest.raises(ConfigurationError, match=r"WSCAD_TRIAGE_PROVIDER="):
         AzureOpenAIBackend(endpoint="x", api_key="y", deployment="z")
 
 

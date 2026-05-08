@@ -48,15 +48,24 @@ def _resolve_model() -> str:
 
 
 def _skip_unless_server_and_model_available(base_url: str, model: str) -> None:
-    """Two-stage gate: server reachable, then model present in /api/tags."""
+    """Two-stage gate: server reachable, then model present in /api/tags.
+
+    ``httpx.HTTPError`` is the umbrella for every transport / status-code /
+    timeout failure mode the SDK can produce, including ``ConnectError``,
+    ``HTTPStatusError``, and ``ReadTimeout`` — no need to enumerate
+    subclasses. ``raise_for_status()`` on the tags response distinguishes
+    "model not pulled" from "server is sick" so the skip message names
+    the right cause.
+    """
     try:
-        version_resp = httpx.get(f"{base_url}/api/version", timeout=2.0)
-        version_resp.raise_for_status()
-    except (httpx.HTTPError, httpx.ConnectError) as exc:
+        httpx.get(f"{base_url}/api/version", timeout=2.0).raise_for_status()
+    except httpx.HTTPError as exc:
         pytest.skip(f"Ollama server not reachable at {base_url}: {exc}")
 
     try:
-        tags = httpx.get(f"{base_url}/api/tags", timeout=5.0).json()
+        tags_resp = httpx.get(f"{base_url}/api/tags", timeout=5.0)
+        tags_resp.raise_for_status()
+        tags = tags_resp.json()
     except (httpx.HTTPError, ValueError) as exc:
         pytest.skip(f"Ollama /api/tags unavailable at {base_url}: {exc}")
 

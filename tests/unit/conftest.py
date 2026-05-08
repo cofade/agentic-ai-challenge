@@ -26,6 +26,14 @@ _SCRUBBED_ENV_VARS: tuple[str, ...] = (
     "WSCAD_TRIAGE_OLLAMA_BASE_URL",
     "WSCAD_TRIAGE_OLLAMA_MODEL",
     "WSCAD_TRIAGE_OLLAMA_TIMEOUT",
+    # OLLAMA_HOST and OLLAMA_API_KEY are read by the ollama SDK directly
+    # (BaseClient falls back to them when host is None). A contributor with
+    # either exported in their shell could otherwise poison unit tests
+    # through the SDK fallback path. OLLAMA_BASE_URL is a Settings alias
+    # the project does not actually use, scrubbed defensively in case a
+    # contributor misreads .env.example.
+    "OLLAMA_HOST",
+    "OLLAMA_API_KEY",
     "OLLAMA_BASE_URL",
     "AZURE_OPENAI_API_KEY",
     "AZURE_OPENAI_ENDPOINT",

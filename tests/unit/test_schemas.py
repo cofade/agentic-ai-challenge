@@ -15,7 +15,10 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from wscad_triage import (
+    ClaimEvidence,
+    ClaimVerdict,
     Classification,
+    DraftSolution,
     KBChunk,
     Output,
     ReasoningStep,
@@ -23,6 +26,7 @@ from wscad_triage import (
     Ticket,
     TicketMetadata,
     TicketState,
+    VerifierVerdict,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -201,6 +205,99 @@ def test_output_confidence_out_of_range_raises() -> None:
             proposed_solution="Re-activate.",
             confidence=1.5,
         )
+
+
+def test_claim_evidence_round_trip() -> None:
+    evidence = ClaimEvidence(
+        claim="Error 504 indicates a licensing problem.",
+        chunk_id="Common_Errors.md#0",
+        quote="Error 504 indicates licensing.",
+    )
+    assert_round_trip(evidence)
+
+
+def test_claim_evidence_rejects_empty_strings() -> None:
+    """ADR-008 layer-1 (b) becomes a no-op if quote is empty (every chunk
+    contains the empty string). Each field is ``min_length=1`` to defend
+    against that bypass at the schema boundary.
+    """
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="x", chunk_id="c", quote="")
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="", chunk_id="c", quote="q")
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="x", chunk_id="", quote="q")
+
+
+def test_draft_solution_round_trip() -> None:
+    draft = DraftSolution(
+        solution="Re-activate the offline license via License Manager.",
+        claims=[
+            ClaimEvidence(
+                claim="Error 504 is a licensing error.",
+                chunk_id="Common_Errors.md#0",
+                quote="Error 504 indicates licensing.",
+            ),
+        ],
+    )
+    assert_round_trip(draft)
+
+
+def test_draft_solution_allows_empty_claims() -> None:
+    draft = DraftSolution(solution="No retrieval; nothing to claim.")
+    assert draft.claims == []
+    assert_round_trip(draft)
+
+
+def test_claim_verdict_round_trip() -> None:
+    verdict = ClaimVerdict(
+        claim="Error 504 is a licensing error.",
+        grounded=True,
+        rationale="Verbatim match against Common_Errors.md#0.",
+    )
+    assert_round_trip(verdict)
+
+
+def test_verifier_verdict_round_trip() -> None:
+    verdict = VerifierVerdict(
+        grounding_score=0.85,
+        per_claim=[
+            ClaimVerdict(
+                claim="Error 504 is a licensing error.",
+                grounded=True,
+                rationale="Cited chunk literally states this.",
+            ),
+        ],
+    )
+    assert_round_trip(verdict)
+
+
+def test_verifier_verdict_score_out_of_range_raises() -> None:
+    with pytest.raises(ValidationError):
+        VerifierVerdict(grounding_score=1.5)
+    with pytest.raises(ValidationError):
+        VerifierVerdict(grounding_score=-0.1)
+
+
+def test_ticket_state_with_draft_and_verdict_round_trip() -> None:
+    ticket = Ticket(ticket_id="T-001", text="hi")
+    state = TicketState(
+        ticket=ticket,
+        draft_solution=DraftSolution(solution="ok", claims=[]),
+        verifier_verdict=VerifierVerdict(grounding_score=0.7, per_claim=[]),
+    )
+    assert_round_trip(state)
+
+
+def test_ticket_state_preliminary_assessment_round_trip() -> None:
+    """The clarify-downgrade path populates this field; the solve path leaves
+    it None. Pinned here so a refactor that drops the field fails loudly.
+    """
+    state = TicketState(
+        ticket=Ticket(ticket_id="T", text="x"),
+        preliminary_assessment="Need more info on OS and version.",
+    )
+    assert_round_trip(state)
 
 
 def test_ticket_state_round_trip() -> None:

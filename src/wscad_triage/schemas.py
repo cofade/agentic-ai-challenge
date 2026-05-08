@@ -97,6 +97,56 @@ class ReasoningStep(BaseModel):
     rationale: str
 
 
+class ClaimEvidence(BaseModel):
+    """One claim in a proposed solution mapped to a retrieved chunk.
+
+    Produced by the reason agent (issue #21); consumed by the verifier
+    agent (issue #23). The ``chunk_id`` MUST be present in the parent
+    ``TicketState.retrievals`` — the reason agent enforces this; a
+    fabricated id is the trivial hallucination case.
+
+    ``quote`` is the exact substring of the chunk text that supports the
+    claim. Strict equality (``quote in chunk.text``) is the cheap
+    defence-in-depth alongside the verifier's LLM-as-judge verdict
+    (ADR-008). ``min_length=1`` defends against the empty-string
+    no-op — every non-empty string is a substring of every chunk.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str = Field(min_length=1)
+    chunk_id: str = Field(min_length=1)
+    quote: str = Field(min_length=1)
+
+
+class DraftSolution(BaseModel):
+    """The reason agent's structured output before verifier scrutiny."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    solution: str
+    claims: list[ClaimEvidence] = Field(default_factory=list)
+
+
+class ClaimVerdict(BaseModel):
+    """The verifier's per-claim judgment."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim: str
+    grounded: bool
+    rationale: str
+
+
+class VerifierVerdict(BaseModel):
+    """Aggregate output of the verify agent (issue #23, ADR-008)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    grounding_score: float = Field(ge=0.0, le=1.0)
+    per_claim: list[ClaimVerdict] = Field(default_factory=list)
+
+
 class Output(BaseModel):
     """The final per-ticket result emitted by the pipeline.
 
@@ -148,7 +198,10 @@ class TicketState(BaseModel):
     ticket: Ticket
     classification: Classification | None = None
     retrievals: list[RetrievalResult] = Field(default_factory=list)
+    draft_solution: DraftSolution | None = None
+    verifier_verdict: VerifierVerdict | None = None
     proposed_solution: str | None = None
+    preliminary_assessment: str | None = None
     followup_questions: list[str] = Field(default_factory=list)
     reasoning_trace: list[ReasoningStep] = Field(default_factory=list)
     confidence_components: dict[str, float] = Field(default_factory=dict)
@@ -158,7 +211,10 @@ class TicketState(BaseModel):
 
 __all__ = [
     "Category",
+    "ClaimEvidence",
+    "ClaimVerdict",
     "Classification",
+    "DraftSolution",
     "KBChunk",
     "Output",
     "Priority",
@@ -169,4 +225,5 @@ __all__ = [
     "Ticket",
     "TicketMetadata",
     "TicketState",
+    "VerifierVerdict",
 ]

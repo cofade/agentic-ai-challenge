@@ -11,4 +11,4 @@ Additional runtime sequences (e.g., batch processing, retry/backoff patterns, th
 ## Cross-references
 
 - The static structure of the components named in these sequences lives in [`../05-building-block-view/`](../05-building-block-view/).
-- Decisions about the supervisor topology and the verifier safety gate are captured in [`../09-architecture-decisions/`](../09-architecture-decisions/): [ADR-008](../09-architecture-decisions/ADR-008-groundedness-gate.md) (Accepted; verifier safety gate); ADR-005 (supervisor topology, pending — Phase 3 PR3).
+- Decisions about the supervisor topology and the verifier safety gate are captured in [`../09-architecture-decisions/`](../09-architecture-decisions/): [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md) (Accepted; supervisor topology in LangGraph); [ADR-008](../09-architecture-decisions/ADR-008-groundedness-gate.md) (Accepted; verifier safety gate).

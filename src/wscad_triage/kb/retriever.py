@@ -281,20 +281,27 @@ class Embedding:
 
 
 RRF_K_DEFAULT: Final[int] = 60  # Cormack et al. 2009; see ADR-006.
+RRF_POOL_MULTIPLIER: Final[int] = 2  # candidates pulled per layer = pool_multiplier * k
 
 
 class HybridRetriever:
     """Fuses :class:`BM25` and :class:`Embedding` via Reciprocal Rank Fusion.
 
-    Per ADR-006: ``score(d) = sum_r 1 / (rrf_k + rank_r(d))`` summed across
-    each retriever ``r`` that returned ``d``. ``rrf_k=60`` is the constant
-    from Cormack et al. 2009. RRF operates on ranks, so no score
-    normalisation is needed across the BM25 and cosine score scales.
+    Per ``docs/09-architecture-decisions/ADR-006-hybrid-rag.md``:
+    ``score(d) = sum_r 1 / (rrf_k + rank_r(d))`` summed across each retriever
+    ``r`` that returned ``d``. ``rrf_k=60`` is the constant from Cormack et
+    al. 2009. RRF operates on ranks, so no score normalisation is needed
+    across the BM25 and cosine score scales.
 
     Returned :class:`RetrievalResult` instances are tagged ``retriever="rrf"``
     and carry the fused RRF score. Edge cases (``k <= 0``, empty corpus,
     empty/whitespace query, all-stopword query) flow through to both wrapped
     retrievers, which already return ``[]`` per their own contracts.
+
+    Caveat: BM25 emits zero-score "fake hits" on out-of-vocabulary queries
+    (no query token matches any chunk); those flow through unfiltered into
+    RRF. ADR-006's negative-consequences section documents this; mitigation
+    is deferred to the eval-set work in issue #16.
     """
 
     def __init__(
@@ -313,14 +320,18 @@ class HybridRetriever:
     def retrieve(self, query: str, k: int) -> list[RetrievalResult]:
         """Retrieve from both layers, fuse via RRF, return top-``k``.
 
-        Pulls top-``k`` from each layer; the union is the RRF candidate pool.
-        That is sufficient for the issue-#12 acceptance criterion: each
-        single-retriever top-1 is by construction in the pool.
+        Pulls ``RRF_POOL_MULTIPLIER * k`` candidates from each layer (not just
+        ``k``) so that consensus picks ranked outside each layer's individual
+        top-``k`` can still surface. Without this widening, a chunk ranked
+        ``k+1`` in both layers — which has fused score ``2/(rrf_k+k+1)``,
+        often higher than a chunk ranked top-1 in only one layer — would be
+        dropped from the candidate pool entirely.
         """
         if k <= 0:
             return []
-        bm25_hits = self._bm25.retrieve(query, k)
-        emb_hits = self._embedding.retrieve(query, k)
+        pool_k = k * RRF_POOL_MULTIPLIER
+        bm25_hits = self._bm25.retrieve(query, pool_k)
+        emb_hits = self._embedding.retrieve(query, pool_k)
         if not bm25_hits and not emb_hits:
             return []
 

@@ -2,9 +2,11 @@
 
 Covers the issue-#12 acceptance criterion ("RRF returns top-k that consistently
 includes the strongest result from either single retriever") plus the RRF math
-itself (per Cormack et al. 2009, ADR-006), the shared retriever contract
-(ranks, scores, edge cases, JSON round-trip), and the OOV-query failure mode
-documented in ADR-006.
+itself (per Cormack et al. 2009, ADR-006), the BM25-wins-on-RRF-tie contract,
+the shared retriever contract (ranks, scores, edge cases, JSON round-trip),
+and a regression-watch pin on BM25's out-of-vocabulary fake-hit fall-through
+(documented in ADR-006's negative-consequences section; mitigation deferred
+to issue #16).
 
 Stub retrievers are used wherever the test asserts a precise RRF score or a
 specific cross-retriever ordering — that pins the math without depending on
@@ -121,27 +123,25 @@ def test_rrf_top_k_includes_top1_from_each_retriever_via_stubs() -> None:
     assert {"a.md#0", "b.md#0"} <= ids
 
 
-def test_rrf_top_k_includes_top1_from_each_retriever_with_real_retrievers(
-    tmp_path: Path,
-) -> None:
-    """End-to-end version of the acceptance criterion using real retrievers.
+def test_pool_widening_surfaces_consensus_picks(tmp_path: Path) -> None:
+    """Pool of ``2*k`` per layer surfaces consensus picks that pool-of-``k`` would drop.
 
-    Whether or not BM25 and Embedding(fake_encoder) actually disagree on top-1
-    over the fixture corpus, the property "hybrid top-k contains each
-    retriever's top-1" must hold.
+    Stubs are constructed so a chunk ranked 2 in both retrievers — fused
+    score ``2/(60+2)`` — outranks chunks ranked 1 in only one — fused
+    score ``1/(60+1)``. With pool=k=1 (the previous, narrower implementation)
+    the consensus pick at rank 2 would be dropped from the candidate pool;
+    pool=2*k=2 surfaces it. This pins the pool-sizing decision in the
+    constructor (see ``RRF_POOL_MULTIPLIER`` in ``kb/retriever.py``).
     """
-    chunks = load_kb(FIXTURE_KB)
-    bm25 = BM25(chunks)
-    embedding = Embedding(chunks, cache_dir=tmp_path, encoder=_fake_encoder)
-    hybrid = HybridRetriever(bm25, embedding)
+    a = _chunk("a.md#0", "alpha")  # BM25 rank 1 only
+    b = _chunk("b.md#0", "beta")  # Embedding rank 1 only
+    c = _chunk("c.md#0", "gamma")  # rank 2 in both — the consensus pick
+    bm25 = _StubRetriever("bm25", [a, c])
+    emb = _StubRetriever("embedding", [b, c])
 
-    query = "license activation"
-    bm25_top1 = bm25.retrieve(query, k=1)[0].chunk.chunk_id
-    embedding_top1 = embedding.retrieve(query, k=1)[0].chunk.chunk_id
-
-    result_ids = {r.chunk.chunk_id for r in hybrid.retrieve(query, k=len(chunks))}
-    assert bm25_top1 in result_ids
-    assert embedding_top1 in result_ids
+    [top] = _hybrid(bm25, emb).retrieve("q", k=1)
+    assert top.chunk.chunk_id == "c.md#0"
+    assert top.score == pytest.approx(2.0 / 62)
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +195,24 @@ def test_constructor_rejects_non_positive_rrf_k(rrf_k: int) -> None:
         _hybrid(bm25, emb, rrf_k=rrf_k)
 
 
+def test_bm25_wins_exact_rrf_tie() -> None:
+    """Tie-break contract: a BM25-only and an embedding-only chunk at the
+    same rank produce equal RRF scores; BM25 is folded in first so the
+    BM25-favoured chunk lands ahead of the embedding-favoured one.
+
+    Pins the docstring claim — without this, a refactor of the dict-loop
+    into a comprehension could silently flip the order.
+    """
+    a = _chunk("a.md#0", "alpha")  # BM25 only
+    b = _chunk("b.md#0", "beta")  # Embedding only
+    bm25 = _StubRetriever("bm25", [a])
+    emb = _StubRetriever("embedding", [b])
+
+    results = _hybrid(bm25, emb).retrieve("q", k=2)
+    assert [r.chunk.chunk_id for r in results] == ["a.md#0", "b.md#0"]
+    assert results[0].score == pytest.approx(results[1].score)
+
+
 # ---------------------------------------------------------------------------
 # Deduplication
 # ---------------------------------------------------------------------------
@@ -208,7 +226,7 @@ def test_same_chunk_in_both_retrievers_appears_once() -> None:
 
     results = _hybrid(bm25, emb).retrieve("q", k=5)
     ids = [r.chunk.chunk_id for r in results]
-    assert ids == sorted(set(ids), key=ids.index), f"duplicate chunk_ids: {ids}"
+    assert len(ids) == len(set(ids)), f"duplicate chunk_ids: {ids}"
     assert len(ids) == 2
 
 
@@ -304,3 +322,61 @@ def test_stopwords_only_query_falls_back_to_embedding_hits(tmp_path: Path) -> No
     if embedding_hits:
         # Order follows embedding ranks (1/(60+rank) is monotonic).
         assert [r.chunk.chunk_id for r in hybrid_hits] == [r.chunk.chunk_id for r in embedding_hits]
+
+
+def test_empty_embedding_layer_falls_back_to_bm25_hits(tmp_path: Path) -> None:
+    """Symmetric to the all-stopwords case: when the embedding layer is built
+    over an empty corpus and BM25 isn't, the BM25 hits flow through alone.
+    """
+    chunks = load_kb(FIXTURE_KB)
+    bm25 = BM25(chunks)
+    empty_embedding = Embedding([], cache_dir=tmp_path, encoder=_fake_encoder)
+    hybrid = HybridRetriever(bm25, empty_embedding)
+
+    query = "license"
+    bm25_hits = bm25.retrieve(query, k=3)
+    hybrid_hits = hybrid.retrieve(query, k=3)
+    assert bm25_hits, "fixture sanity: BM25 should match 'license'"
+    assert [r.chunk.chunk_id for r in hybrid_hits] == [r.chunk.chunk_id for r in bm25_hits]
+
+
+# ---------------------------------------------------------------------------
+# Regression-watch: BM25 OOV fake-hit fall-through (ADR-006 negative bullet)
+# ---------------------------------------------------------------------------
+
+
+def test_bm25_oov_fake_hits_flow_through_unfiltered(tmp_path: Path) -> None:
+    """Pin the current degraded behaviour ADR-006 documents and defers to #16.
+
+    On a fully out-of-vocabulary query, ``BM25.get_scores`` returns an
+    all-zero vector. The BM25 wrapper still emits top-``k`` results in
+    original-corpus order with ``score == 0.0``. RRF currently consumes
+    those unfiltered — meaning a score-zero "fake hit" gets the same
+    rank-1 vote as a genuine top-1 match.
+
+    The pin is constructed against an empty embedding layer so the
+    assertion is deterministic: only BM25 contributes, and its OOV hits
+    appear verbatim in the hybrid output. When issue #16's mitigation
+    lands (e.g. a score-threshold filter on BM25 results before RRF) the
+    hybrid output will become ``[]`` here and this test will demand an
+    update.
+    """
+    chunks = load_kb(FIXTURE_KB)
+    bm25 = BM25(chunks)
+    empty_embedding = Embedding([], cache_dir=tmp_path, encoder=_fake_encoder)
+    hybrid = HybridRetriever(bm25, empty_embedding)
+
+    oov_query = "xyzzy plover quux"
+    bm25_oov = bm25.retrieve(oov_query, k=3)
+    assert bm25_oov, "BM25 emits fake hits on OOV queries — the property under test"
+    assert all(r.score == 0.0 for r in bm25_oov), (
+        "OOV fake hits must score exactly 0.0; if BM25 scoring changes, "
+        "this assertion needs to be revisited along with the RRF mitigation."
+    )
+
+    hybrid_hits = hybrid.retrieve(oov_query, k=3)
+    assert {r.chunk.chunk_id for r in hybrid_hits} == {r.chunk.chunk_id for r in bm25_oov}, (
+        "Current behaviour: BM25 zero-score OOV fake hits flow through into the "
+        "hybrid result. Flipping this requires a deliberate change — see "
+        "ADR-006 negative-consequences and issue #16."
+    )

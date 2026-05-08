@@ -120,6 +120,7 @@ addopts = [
 markers = [
     "integration: tests that exercise the full pipeline (mocked LLM allowed)",
     "live_api: tests that require real API keys (skipped by default)",
+    "network: tests that need outbound network access (e.g. HuggingFace model download)",
 ]
 
 [tool.coverage.run]

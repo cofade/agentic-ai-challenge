@@ -20,10 +20,9 @@ at write time so query-time similarity is a single cosine-equivalent dot product
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
-import time
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import Final
@@ -184,7 +183,7 @@ class Embedding:
         self._chunks = chunks
         self._model_name = model_name
         self._cache_dir = cache_dir
-        self._encoder = encoder
+        self._encoder: EncoderFn | None = encoder
 
         if not chunks:
             self._embeddings: npt.NDArray[np.float32] = np.zeros((0, 0), dtype=np.float32)
@@ -196,10 +195,23 @@ class Embedding:
             self._embeddings = cached
             return
 
-        encoder_fn = encoder if encoder is not None else _default_encoder_factory(model_name)
-        raw = encoder_fn([c.text for c in chunks])
+        # Cache miss: build (and memoise) the encoder for the corpus encode;
+        # ``retrieve`` then reuses it for query encodes without reloading the
+        # underlying ~470 MB SentenceTransformer.
+        raw = self._get_encoder()([c.text for c in chunks])
         self._embeddings = _l2_normalise(np.asarray(raw, dtype=np.float32))
         self._write_cache(cache_path)
+
+    def _get_encoder(self) -> EncoderFn:
+        """Lazily build and memoise the encoder used for query and corpus encoding.
+
+        Constructed at most once per ``Embedding`` instance — so a cache-hit
+        ``__init__`` followed by many ``retrieve`` calls loads the model exactly
+        once, on the first ``retrieve``.
+        """
+        if self._encoder is None:
+            self._encoder = _default_encoder_factory(self._model_name)
+        return self._encoder
 
     def _try_load_cache(self, cache_path: Path) -> npt.NDArray[np.float32] | None:
         if not cache_path.is_file():
@@ -208,10 +220,24 @@ class Embedding:
             with np.load(cache_path, allow_pickle=False) as data:
                 cached_ids = list(data["chunk_ids"])
                 embeddings = np.asarray(data["embeddings"], dtype=np.float32)
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError) as exc:
+            warnings.warn(
+                f"embedding cache {cache_path.name} is corrupt; recomputing: {exc}",
+                stacklevel=2,
+            )
             return None
         expected_ids = [c.chunk_id for c in self._chunks]
         if cached_ids != expected_ids or embeddings.shape[0] != len(expected_ids):
+            # The cache key already commits to (chunk_id, text) per chunk, so a
+            # hash match implies an id match. Landing here means a sha256-prefix
+            # collision or a bug in ``_cache_key`` — surface it loudly rather
+            # than silently re-encoding and masking the cause.
+            warnings.warn(
+                f"embedding cache {cache_path.name} hash matched but chunk ids "
+                "differ; this implies a hash collision or a bug in _cache_key. "
+                "Recomputing.",
+                stacklevel=2,
+            )
             return None
         return embeddings
 
@@ -225,17 +251,6 @@ class Embedding:
             np.savez(fh, embeddings=self._embeddings, chunk_ids=chunk_ids)
         os.replace(tmp_npz, cache_path)
 
-        meta = {
-            "model_name": self._model_name,
-            "num_chunks": int(self._embeddings.shape[0]),
-            "embedding_dim": int(self._embeddings.shape[1]),
-            "created_at": time.time(),
-        }
-        meta_path = cache_path.with_suffix(".meta.json")
-        tmp_meta = meta_path.with_suffix(meta_path.suffix + ".tmp")
-        tmp_meta.write_text(json.dumps(meta, indent=2, sort_keys=True))
-        os.replace(tmp_meta, meta_path)
-
     def retrieve(self, query: str, k: int) -> list[RetrievalResult]:
         """Return up to ``k`` :class:`RetrievalResult`s, ranked by cosine similarity.
 
@@ -247,12 +262,7 @@ class Embedding:
         if k <= 0 or self._embeddings.shape[0] == 0 or not query.strip():
             return []
 
-        encoder_fn = (
-            self._encoder
-            if self._encoder is not None
-            else _default_encoder_factory(self._model_name)
-        )
-        query_vec = np.asarray(encoder_fn([query]), dtype=np.float32)
+        query_vec = np.asarray(self._get_encoder()([query]), dtype=np.float32)
         query_vec = _l2_normalise(query_vec.reshape(1, -1))[0]
         scores = self._embeddings @ query_vec
 

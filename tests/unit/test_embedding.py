@@ -58,6 +58,7 @@ def _fake_encoder(texts: list[str]) -> npt.NDArray[np.float32]:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.network
 def test_german_query_against_english_corpus_returns_plausible_match(tmp_path: Path) -> None:
     """A German query against an English-only corpus surfaces a plausible match.
 
@@ -94,10 +95,7 @@ def test_german_query_against_english_corpus_returns_plausible_match(tmp_path: P
 def test_cold_start_writes_cache(tmp_path: Path) -> None:
     chunks = [_chunk("a.md#0", "alpha"), _chunk("b.md#0", "beta")]
     Embedding(chunks, cache_dir=tmp_path, encoder=_fake_encoder)
-    npz_files = list(tmp_path.glob("*.npz"))
-    meta_files = list(tmp_path.glob("*.meta.json"))
-    assert len(npz_files) == 1
-    assert len(meta_files) == 1
+    assert len(list(tmp_path.glob("*.npz"))) == 1
 
 
 def test_warm_start_loads_cache_without_recomputing(tmp_path: Path) -> None:
@@ -126,14 +124,29 @@ def test_changing_model_name_invalidates_cache(tmp_path: Path) -> None:
     assert len(list(tmp_path.glob("*.npz"))) == 2
 
 
-def test_corrupt_cache_falls_back_to_recompute(tmp_path: Path) -> None:
+def test_reordering_chunks_invalidates_cache(tmp_path: Path) -> None:
+    """Same chunk *set* in different order → distinct cache files.
+
+    Pins the positional-alignment promise: cache row N must correspond to the
+    chunk at index N in the constructor argument. A future "sort chunks before
+    hashing" refactor would silently break that and this test would catch it.
+    """
+    a = _chunk("a.md#0", "alpha")
+    b = _chunk("b.md#0", "beta")
+    Embedding([a, b], cache_dir=tmp_path, encoder=_fake_encoder)
+    Embedding([b, a], cache_dir=tmp_path, encoder=_fake_encoder)
+    assert len(list(tmp_path.glob("*.npz"))) == 2
+
+
+def test_corrupt_cache_falls_back_to_recompute_with_warning(tmp_path: Path) -> None:
     chunks = [_chunk("a.md#0", "alpha")]
     Embedding(chunks, cache_dir=tmp_path, encoder=_fake_encoder)
     cache_file = next(tmp_path.glob("*.npz"))
     cache_file.write_bytes(b"not a real npz")
 
     spy = MagicMock(side_effect=_fake_encoder)
-    Embedding(chunks, cache_dir=tmp_path, encoder=spy)
+    with pytest.warns(UserWarning, match="corrupt"):
+        Embedding(chunks, cache_dir=tmp_path, encoder=spy)
     spy.assert_called_once()  # corpus was re-encoded
 
 

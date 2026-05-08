@@ -6,7 +6,9 @@ they happen to have Ollama installed but in a partially-configured state:
 1. ``pyproject.toml``'s default ``addopts`` adds ``-m "not live_api"`` so
    ``pytest tests/`` excludes this test from regular runs.
 2. The test calls ``pytest.skip()`` when:
-   - the Ollama server is not reachable at ``OLLAMA_BASE_URL``, OR
+   - the Ollama server is not reachable (resolver order:
+     ``OLLAMA_BASE_URL`` → ``WSCAD_TRIAGE_OLLAMA_BASE_URL`` →
+     ``http://localhost:11434``), OR
    - the configured model is not pulled (``ollama pull <model>`` not run).
 
 Run locally with::

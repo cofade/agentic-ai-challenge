@@ -249,8 +249,17 @@ one backend module knows what is and isn't equivalent across providers:
   - **§6 (new) "Backend equivalence is by Protocol, not feature parity"**
     — pins which `Message`/`ToolCall` fields are honoured vs ignored
     across the three backends.
-  - **Consequences "Negative"** — added Ollama tool-use fidelity
-    risk; Future work — added per-model fidelity benchmark (#34).
+  - **Consequences "Negative"** — rewrote the
+    "Two backends advertise themselves" bullet to "The Azure stub
+    advertises itself" (only one stub now, since Ollama is
+    implemented); appended a new bullet for Ollama tool-use fidelity
+    being model-dependent.
+  - **Future work** — appended the per-model Ollama fidelity-benchmark
+    bullet (#34); rewrote the Azure migration bullet's test-update
+    pointer from `tests/integration/test_anthropic_live.py` to
+    `tests/integration/test_azure_live.py` (the new file the
+    migration would create) and noted the sibling Anthropic + Ollama
+    smokes.
   - **Unchanged: §1 (Protocol), §2 (boundary types), §4
     (MockLLMClient).** The original rationale for those sections still
     applies verbatim.

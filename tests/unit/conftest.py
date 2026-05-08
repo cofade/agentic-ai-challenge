@@ -27,11 +27,13 @@ _SCRUBBED_ENV_VARS: tuple[str, ...] = (
     "WSCAD_TRIAGE_OLLAMA_MODEL",
     "WSCAD_TRIAGE_OLLAMA_TIMEOUT",
     # OLLAMA_HOST and OLLAMA_API_KEY are read by the ollama SDK directly
-    # (BaseClient falls back to them when host is None). A contributor with
-    # either exported in their shell could otherwise poison unit tests
-    # through the SDK fallback path. OLLAMA_BASE_URL is a Settings alias
-    # the project does not actually use, scrubbed defensively in case a
-    # contributor misreads .env.example.
+    # (BaseClient falls back to them when ``host`` is None). A contributor
+    # with either exported in their shell could otherwise poison unit
+    # tests through the SDK fallback path. OLLAMA_BASE_URL is read by
+    # the integration live test's resolver
+    # (``tests/integration/test_ollama_live.py:_resolve_base_url``);
+    # scrubbed here for symmetry so a unit test that imports any of that
+    # module's helpers cannot inherit it.
     "OLLAMA_HOST",
     "OLLAMA_API_KEY",
     "OLLAMA_BASE_URL",

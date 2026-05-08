@@ -66,7 +66,8 @@ agentic-ai-challenge/
 ├── tests/                       ← unit + integration tests
 ├── eval/                        ← evaluation harness (Phase 5)
 ├── kb/                          ← local knowledge base (the only authoritative source)
-│   └── original/                ← the 3 KB files provided by WSCAD
+│   ├── original/                ← the 3 KB files provided by WSCAD
+│   └── electrix_ai_release_notes/  ← per-version notes (Phase 2; currently synthetic — see docs/11-risks-and-technical-debt/)
 ├── tickets/                     ← provided sample tickets + golden eval set (Phase 5)
 └── docs/                        ← arc42-style architecture documentation
 ```

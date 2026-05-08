@@ -216,6 +216,19 @@ def test_claim_evidence_round_trip() -> None:
     assert_round_trip(evidence)
 
 
+def test_claim_evidence_rejects_empty_strings() -> None:
+    """ADR-008 layer-1 (b) becomes a no-op if quote is empty (every chunk
+    contains the empty string). Each field is ``min_length=1`` to defend
+    against that bypass at the schema boundary.
+    """
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="x", chunk_id="c", quote="")
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="", chunk_id="c", quote="q")
+    with pytest.raises(ValidationError):
+        ClaimEvidence(claim="x", chunk_id="", quote="q")
+
+
 def test_draft_solution_round_trip() -> None:
     draft = DraftSolution(
         solution="Re-activate the offline license via License Manager.",

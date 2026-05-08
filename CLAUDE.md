@@ -43,7 +43,7 @@ When a bug requires instrumentation:
 4. Capture the output and identify the root cause.
 5. Remove ALL `[DEBUG]` statements before committing.
 
-For permanent instrumentation, use `src/wscad_triage/observability.py` which emits structured JSON logs with a per-ticket trace ID. Never commit `print()` calls.
+For permanent instrumentation, use `src/wscad_triage/observability.py` — `get_logger(trace_id)` returns a `LoggerAdapter` that tags every record with the per-ticket trace ID. Phase 5 swaps the formatter for full structured JSON; the call-site surface stays the same. Never commit `print()` calls.
 
 ## Documentation Map
 
@@ -128,9 +128,9 @@ All five must pass. Fix failures before proceeding.
 ## Progress Tracking
 
 **Current phase:** Phase 3 — LLM abstraction & agents
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md))
-**In progress:** Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18); PR2 (#19–#23) and PR3 (#24, #25, #26) follow
-**Next up:** Phase 3 PR2 — five worker agents + ADR-008
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 PR1 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50)
+**In progress:** Phase 3 PR2 — five worker agents + ADR-008 (#19, #20, #21, #22, #23)
+**Next up:** Phase 3 PR3 — supervisor + LangGraph + integration tests + ADR-005 (#24, #25, #26)
 
 (Update this section at the start of each session.)
 

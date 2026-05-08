@@ -108,14 +108,15 @@ class ClaimEvidence(BaseModel):
     ``quote`` is the exact substring of the chunk text that supports the
     claim. Strict equality (``quote in chunk.text``) is the cheap
     defence-in-depth alongside the verifier's LLM-as-judge verdict
-    (ADR-008).
+    (ADR-008). ``min_length=1`` defends against the empty-string
+    no-op — every non-empty string is a substring of every chunk.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    claim: str
-    chunk_id: str
-    quote: str
+    claim: str = Field(min_length=1)
+    chunk_id: str = Field(min_length=1)
+    quote: str = Field(min_length=1)
 
 
 class DraftSolution(BaseModel):

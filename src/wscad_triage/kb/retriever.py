@@ -278,3 +278,85 @@ class Embedding:
             )
             for rank, idx in enumerate(ranked_indices, start=1)
         ]
+
+
+RRF_K_DEFAULT: Final[int] = 60  # Cormack et al. 2009; see ADR-006.
+RRF_POOL_MULTIPLIER: Final[int] = 2  # candidates pulled per layer = pool_multiplier * k
+
+
+class HybridRetriever:
+    """Fuses :class:`BM25` and :class:`Embedding` via Reciprocal Rank Fusion.
+
+    Per ``docs/09-architecture-decisions/ADR-006-hybrid-rag.md``:
+    ``score(d) = sum_r 1 / (rrf_k + rank_r(d))`` summed across each retriever
+    ``r`` that returned ``d``. ``rrf_k=60`` is the constant from Cormack et
+    al. 2009. RRF operates on ranks, so no score normalisation is needed
+    across the BM25 and cosine score scales.
+
+    Returned :class:`RetrievalResult` instances are tagged ``retriever="rrf"``
+    and carry the fused RRF score. Edge cases (``k <= 0``, empty corpus,
+    empty/whitespace query, all-stopword query) flow through to both wrapped
+    retrievers, which already return ``[]`` per their own contracts.
+
+    Caveat: BM25 emits zero-score "fake hits" on out-of-vocabulary queries
+    (no query token matches any chunk); those flow through unfiltered into
+    RRF. ADR-006's negative-consequences section documents this; mitigation
+    is deferred to the eval-set work in issue #16.
+    """
+
+    def __init__(
+        self,
+        bm25: BM25,
+        embedding: Embedding,
+        *,
+        rrf_k: int = RRF_K_DEFAULT,
+    ) -> None:
+        if rrf_k <= 0:
+            raise ValueError(f"rrf_k must be positive, got {rrf_k}")
+        self._bm25 = bm25
+        self._embedding = embedding
+        self._rrf_k = rrf_k
+
+    def retrieve(self, query: str, k: int) -> list[RetrievalResult]:
+        """Retrieve from both layers, fuse via RRF, return top-``k``.
+
+        Pulls ``RRF_POOL_MULTIPLIER * k`` candidates from each layer (not just
+        ``k``) so that consensus picks ranked outside each layer's individual
+        top-``k`` can still surface. Without this widening, a chunk ranked
+        ``k+1`` in both layers — which has fused score ``2/(rrf_k+k+1)``,
+        often higher than a chunk ranked top-1 in only one layer — would be
+        dropped from the candidate pool entirely.
+        """
+        if k <= 0:
+            return []
+        pool_k = k * RRF_POOL_MULTIPLIER
+        bm25_hits = self._bm25.retrieve(query, pool_k)
+        emb_hits = self._embedding.retrieve(query, pool_k)
+        if not bm25_hits and not emb_hits:
+            return []
+
+        # Aggregate by chunk_id; first-seen chunk reference is preserved.
+        # BM25 hits are folded in first → BM25-favoured chunks win exact
+        # RRF ties via the stable sort below.
+        fused: dict[str, tuple[KBChunk, float]] = {}
+        for hits in (bm25_hits, emb_hits):
+            for r in hits:
+                cid = r.chunk.chunk_id
+                contribution = 1.0 / (self._rrf_k + r.rank)
+                if cid in fused:
+                    chunk, score = fused[cid]
+                    fused[cid] = (chunk, score + contribution)
+                else:
+                    fused[cid] = (r.chunk, contribution)
+
+        ordered = sorted(fused.values(), key=lambda item: -item[1])
+        top = ordered[: min(k, len(ordered))]
+        return [
+            RetrievalResult(
+                chunk=chunk,
+                score=score,
+                rank=rank,
+                retriever="rrf",
+            )
+            for rank, (chunk, score) in enumerate(top, start=1)
+        ]

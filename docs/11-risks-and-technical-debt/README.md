@@ -4,7 +4,7 @@ Known risks, deliberate trade-offs, and items deferred to future iterations. Upd
 
 ## Known limitations
 
-(Empty initially. Filled in as Phase 1+ work surfaces concrete trade-offs.)
+- **BM25 fake-hit vote inflation in hybrid RAG.** On an out-of-vocabulary query, `BM25` returns top-`k` chunks with `score == 0.0` in original corpus order. `HybridRetriever` folds those into RRF unfiltered, so they co-vote with any genuine embedding hits and can inflate the fused rank of an unrelated chunk. Documented in [ADR-006](../09-architecture-decisions/ADR-006-hybrid-rag.md) (negative-consequences section); pinned as a regression-watch test in `tests/unit/test_hybrid.py::test_bm25_oov_fake_hits_flow_through_unfiltered`. Mitigation (score-threshold filter on BM25 results before RRF) is deferred to issue #16 — the eval harness will quantify whether it actually regresses retrieval quality on the labelled set, and we don't want to hand-tune a threshold without that signal.
 
 ## Deliberate non-goals (already decided)
 

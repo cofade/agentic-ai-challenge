@@ -32,11 +32,12 @@ from wscad_triage.kb.chunker import (
     segment_sentences,
 )
 from wscad_triage.kb.loader import RawDoc, load_documents, parse_frontmatter
-from wscad_triage.kb.retriever import BM25, Embedding, tokenize
+from wscad_triage.kb.retriever import BM25, Embedding, HybridRetriever, tokenize
 
 __all__ = [
     "BM25",
     "Embedding",
+    "HybridRetriever",
     "RawDoc",
     "build_detector",
     "chunk_document",

@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 0 — Bootstrap
-**Completed:** —
-**In progress:** Phase 0 issues #1–#7
-**Next up:** Phase 1 — Schemas & KB foundation (issues #8–#13)
+**Current phase:** Phase 2 — KB extension
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13)
+**In progress:** Phase 2 issues #14, #15, #16 (KB corpus extension + multi-version retrieval)
+**Next up:** Phase 3 — LLM abstraction & agents
 
 (Update this section at the start of each session.)
 

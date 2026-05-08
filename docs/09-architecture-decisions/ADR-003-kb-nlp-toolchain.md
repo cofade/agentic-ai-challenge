@@ -44,9 +44,19 @@ The alternatives considered were:
 - **`pysbd` does not ship type stubs.** Imports it with `# type: ignore[import-untyped]` in `chunker.py`. `lingua` ships `py.typed`, so it type-checks cleanly under `mypy --strict`.
 - **Lock-in.** Switching segmenters later changes chunk IDs, which invalidates any cached embeddings (#11) and any test fixtures that pin chunk counts. The cost of a future swap is real but bounded; this ADR is the place where reviewers can challenge the choice before that cost compounds.
 
+## Phase 2 — corpus extension methodology (issues #14, #15, #16)
+
+Phase 2 widens the KB beyond the three Phase-0 files by sourcing ELECTRIX AI release notes from <https://www.wscad.com/electrix/release-notes/>. Two procedural decisions ship with the data:
+
+- **One-shot scrape, no committed scraper.** The release-notes scrape is performed once at implementation time by a subagent invocation of `WebFetch`; the markdown files under `kb/electrix_ai_release_notes/` are the deliverable. No scraping script, parser, or HTTP dependency lands in the repository — keeping the runtime closure (and `bandit` surface) unchanged. If the page changes shape and the corpus needs a refresh, the procedure is re-run, not rebuilt.
+- **All-or-nothing fallback.** When the live scrape fails (the initial Phase-2 attempt hit a 403 on the bot-protected page), the corpus ships as 6–8 hand-authored synthetic notes tagged `synthetic_for_demo: true`. A mixed corpus (some real, some synthetic) is explicitly forbidden — `tests/unit/test_kb_corpus.py::test_synthetic_for_demo_is_consistent_across_corpus` enforces a single corpus-wide value for the flag. The current Phase-2 corpus is synthetic; this is recorded in `docs/11-risks-and-technical-debt/README.md`.
+- **Filename and language convention.** Files are named `v<version>.md` (or `v<version>.<lang>.md` when the same version publishes both EN and DE bodies). The frontmatter `language` field is single-valued and string-typed (a list would be rejected by `parse_frontmatter`); per-sentence language detection in the chunker still tags individual sentences regardless. `parse_frontmatter` defensively quotes string values in the generated files to keep YAML 1.1 numeric coercion (e.g. `7.3` → `float`) from corrupting version strings.
+
 ## References
 
 - Issue #9 — KB loader + sentence chunker.
+- Issues #14, #15, #16 — Phase 2 corpus extension and retrieval acceptance.
 - [`docs/05-building-block-view/README.md`](../05-building-block-view/README.md) — names `kb.loader` and `kb.chunker` as separate building blocks.
 - [`docs/12-glossary/README.md`](../12-glossary/README.md) — defines a chunk as one sentence with provenance.
 - ADR-002 — Schema conventions; `KBChunk.metadata: dict[str, str]` is the constraint that motivates the frontmatter stringification rule.
+- ADR-006 — Hybrid RAG strategy; the `HybridRetriever` is the production retrieval path that the Phase-2 multi-version acceptance test exercises.

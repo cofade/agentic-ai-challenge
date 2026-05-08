@@ -158,10 +158,15 @@ to maintain.
   of one function. The rest of the topology stays put.
 - **Negative — runtime dependency.** LangGraph + transitive deps
   (`langchain-core`, `langgraph-checkpoint`, ...). Pinned at
-  `>=0.2.0` and locked via `uv.lock`. The transitive surface is
+  `>=1.0.0,<2.0.0` so a fresh `uv sync` cannot land between 0.x and
+  1.x APIs (`StateGraph` constructor, `add_conditional_edges`
+  mapping shape, and `draw_mermaid` output have all moved across
+  major versions). `uv.lock` captures the exact resolved
+  versions for reproducible installs. The transitive surface is
   larger than a hand-rolled dispatcher; the persistence/streaming
   hooks earn their keep when Phase 5 eval starts long-running
-  parallel runs.
+  parallel runs. A future LangGraph 2.x bump is an ADR-update +
+  one-PR migration, not a silent install failure.
 - **Negative — three terminal nodes.** Slightly more topology than
   a two-sink design. Justified above; the alternative (synthetic
   gaps in the downgrade path) was strictly worse.

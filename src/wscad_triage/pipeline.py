@@ -90,6 +90,13 @@ def state_to_output(state: TicketState) -> Output:
     ``preliminary_assessment`` are mutually exclusive per
     ``resolution_kind`` -- the finalize nodes are responsible for setting
     exactly one.
+
+    ``cited_sources`` is populated only for ``resolution_kind="solve"``.
+    On the clarify-downgrade path the verifier explicitly rejected the
+    draft's claims, so listing those source files would misrepresent
+    them as supporting evidence for an outcome that has no proposed
+    solution. On the missing-fields clarify path there is no draft at
+    all. Empty in both clarify cases.
     """
     if state.classification is None:
         raise ValueError(
@@ -107,12 +114,15 @@ def state_to_output(state: TicketState) -> Output:
             "finalize node is responsible for setting it"
         )
 
-    cited = sorted(
-        {
-            c.chunk_id.split("#")[0]
-            for c in (state.draft_solution.claims if state.draft_solution else [])
-        }
-    )
+    cited: list[str] = []
+    if state.resolution_kind == "solve" and state.draft_solution is not None:
+        # Look up source_file via state.retrievals rather than parsing
+        # the chunk_id literal -- the chunk_id format is the chunker's
+        # convention (kb/chunker.py), not a contract pipeline.py should
+        # depend on. The reason agent's layer-1 (a) check guarantees
+        # every claim.chunk_id is in state.retrievals.
+        source_by_chunk = {r.chunk.chunk_id: r.chunk.source_file for r in state.retrievals}
+        cited = sorted({source_by_chunk[c.chunk_id] for c in state.draft_solution.claims})
     return Output(
         ticket_id=state.ticket.ticket_id,
         category=state.classification.category,

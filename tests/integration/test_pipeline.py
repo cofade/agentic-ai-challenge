@@ -184,12 +184,22 @@ def test_clarify_required_when_metadata_missing(mock_llm: Any, stub_retriever_fa
     assert output.resolution_kind == "clarify"
     assert output.proposed_solution is None
     assert output.preliminary_assessment is not None
+    # Whole-word membership against the comma-separated gap list rather
+    # than a naked substring (which would falsely match "os" inside
+    # "lots", "post", etc.).
+    gap_list = output.preliminary_assessment.split("Awaiting clarification on: ")[1]
+    gap_set = {g.strip().rstrip(".") for g in gap_list.split(",")}
+    assert "os" in gap_set
+    assert "version" in gap_set
     assert len(output.followup_questions) == 2
-    assert output.confidence < 0.5  # placeholder is below threshold by construction
+    assert output.confidence == 0.3  # CLARIFY_CONFIDENCE_PLACEHOLDER
+    assert output.confidence_breakdown == {}  # no verifier on this path
+    assert output.cited_sources == []  # no draft; nothing to cite
     # Retriever was never called -- short-circuit through clarify.
     assert retriever.calls == []
     actors = [s.actor for s in output.reasoning_trace]
     assert actors == ["triage", "clarify", "supervisor"]
+    assert output.reasoning_trace[-1].action == "finalize_clarify"
 
 
 # ---------------------------------------------------------------------------
@@ -254,10 +264,21 @@ def test_multilingual_ticket_solves(mock_llm: Any, stub_retriever_factory: Any) 
 
     assert output.resolution_kind == "solve"
     assert output.confidence == 0.78
-    # The DE chunk_id surfaces in the reason step's evidence_refs.
+    # The DE-language chunk_id propagates unchanged through reason ->
+    # verify -> output. The retrieve agent passed a non-empty rewritten
+    # query (English-tokenised; cross-lingual retrieval is the embedder's
+    # job, see ADR-006). The cited DE source file is in cited_sources
+    # verbatim -- a renderer that filtered to English-only would break
+    # this assertion.
     reason_step = next(s for s in output.reasoning_trace if s.actor == "reason")
     assert de_chunk_id in reason_step.evidence_refs
+    retrieve_step = next(s for s in output.reasoning_trace if s.actor == "retrieve")
+    assert retrieve_step.rationale  # rewrite was emitted, not a fallback
+    assert retriever.calls and retriever.calls[0][0] == "lizenz update license manager"
     assert output.cited_sources == ["v7.3.2.4.de.md"]
+    # German solution text passes through verbatim.
+    assert output.proposed_solution is not None
+    assert "License Manager" in output.proposed_solution
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +352,11 @@ def test_ungrounded_claim_trap_downgrades_to_clarify(
     assert "Error 504 is fixed by reinstalling from USB." in output.preliminary_assessment
     assert output.followup_questions == []  # downgrade path emits no questions
     assert output.confidence == 0.3
+    assert output.confidence_breakdown == {"verifier": 0.30}
+    # cited_sources is empty on downgrade: the verifier explicitly
+    # rejected these claims, so the chunk that "supports" them must
+    # not appear as supporting evidence in the final Output.
+    assert output.cited_sources == []
     # The downgrade path runs reason+verify but skips the clarify worker.
     actors = [s.actor for s in output.reasoning_trace]
     assert actors == ["triage", "retrieve", "reason", "verify", "supervisor"]
@@ -344,9 +370,15 @@ def test_ungrounded_claim_trap_downgrades_to_clarify(
 def test_missing_os_short_circuits_before_retrieval(
     mock_llm: Any, stub_retriever_factory: Any
 ) -> None:
-    """Triage's deterministic gap pass plus the supervisor's route_after_triage
-    edge ensure the retriever is never invoked when critical metadata is
-    missing -- saves a vector-DB round-trip on tickets we can't answer.
+    """Single-gap clarify path. Distinct from scenario 2 (multi-gap) on
+    two axes: (a) the gap-matcher's whole-word logic must accept the
+    LLM's "operating system" synonym for the canonical gap "os" --
+    scenario 2 used both gaps explicitly and would pass even if the
+    matcher were broken, but this scenario fails if the synonym table
+    in clarify.py:_GAP_SYNONYMS regresses; (b) the retriever is
+    instantiated but provably never called -- saves a vector-DB
+    round-trip on tickets we can't answer until the user supplies the
+    missing field.
     """
     ticket = Ticket(
         ticket_id="T-005",
@@ -368,6 +400,9 @@ def test_missing_os_short_circuits_before_retrieval(
                 "emit_questions",
                 {
                     "questions": [
+                        # Both questions use the synonym "operating system",
+                        # not the literal "os" -- the gap-matcher must accept
+                        # this for the test to pass at all.
                         "Which operating system and version is the machine running?",
                         "Does the crash reproduce on a different operating system?",
                     ]
@@ -375,15 +410,15 @@ def test_missing_os_short_circuits_before_retrieval(
             ),
         }
     )
-    retriever = stub_retriever_factory()  # would raise if called (no results queued)
+    retriever = stub_retriever_factory()
 
     output = pipeline.run(ticket, llm, retriever)
 
     assert output.resolution_kind == "clarify"
     assert retriever.calls == []
-    # The supervisor's deterministic edge skipped retrieve -> reason -> verify.
+    assert all("operating system" in q.lower() for q in output.followup_questions)
     actors = [s.actor for s in output.reasoning_trace]
-    assert "retrieve" not in actors
-    assert "reason" not in actors
-    assert "verify" not in actors
     assert actors == ["triage", "clarify", "supervisor"]
+    # The clarify agent's reasoning step records the gap it targeted.
+    clarify_step = next(s for s in output.reasoning_trace if s.actor == "clarify")
+    assert clarify_step.evidence_refs == ["os"]

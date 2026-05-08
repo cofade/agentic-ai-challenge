@@ -26,11 +26,22 @@ from wscad_triage.schemas import (
     ClaimVerdict,
     Classification,
     DraftSolution,
+    KBChunk,
     Output,
+    RetrievalResult,
     Ticket,
     TicketState,
     VerifierVerdict,
 )
+
+
+def _retrieval(chunk_id: str, source_file: str, text: str = "...") -> RetrievalResult:
+    return RetrievalResult(
+        chunk=KBChunk(chunk_id=chunk_id, source_file=source_file, text=text),
+        score=0.9,
+        rank=1,
+        retriever="rrf",
+    )
 
 
 def _ticket() -> Ticket:
@@ -189,8 +200,12 @@ def test_finalize_clarify_synthesises_assessment_and_uses_placeholder_confidence
     new = supervisor.finalize_clarify(state)
     assert new.resolution_kind == "clarify"
     assert new.preliminary_assessment is not None
-    assert "os" in new.preliminary_assessment
-    assert "version" in new.preliminary_assessment
+    # Whole-word membership against the comma-separated gap list rather
+    # than naked substrings (which would falsely match "os" inside
+    # "lots", "post", etc.).
+    gap_list = new.preliminary_assessment.split("Awaiting clarification on: ")[1]
+    assert "os" in {g.strip().rstrip(".") for g in gap_list.split(",")}
+    assert "version" in {g.strip().rstrip(".") for g in gap_list.split(",")}
     assert new.proposed_solution is None
     assert new.final_confidence == supervisor.CLARIFY_CONFIDENCE_PLACEHOLDER
     # Below 0.5 by construction so a clarify never masquerades as a solve.
@@ -270,6 +285,7 @@ def test_state_to_output_solve_path() -> None:
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
+        retrievals=[_retrieval("Common_Errors.md#0", "Common_Errors.md")],
         draft_solution=_draft(),
         verifier_verdict=_verdict(0.85),
         confidence_components={"verifier": 0.85},
@@ -305,6 +321,11 @@ def test_state_to_output_dedupes_and_sorts_cited_sources() -> None:
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
+        retrievals=[
+            _retrieval("Licensing_Offline_Activation.md#0", "Licensing_Offline_Activation.md"),
+            _retrieval("Licensing_Offline_Activation.md#3", "Licensing_Offline_Activation.md"),
+            _retrieval("Common_Errors.md#0", "Common_Errors.md"),
+        ],
         draft_solution=DraftSolution(
             solution="x",
             claims=[
@@ -332,6 +353,26 @@ def test_state_to_output_dedupes_and_sorts_cited_sources() -> None:
     assert out.cited_sources == ["Common_Errors.md", "Licensing_Offline_Activation.md"]
 
 
+def test_state_to_output_downgrade_path_omits_cited_sources() -> None:
+    """The verifier explicitly rejected these claims; surfacing their source
+    files as ``cited_sources`` would misrepresent them as supporting an
+    outcome with no proposed_solution. Pin the choice in a test so the
+    contract can't drift silently.
+    """
+    state = TicketState(
+        ticket=_ticket(),
+        classification=_classification(),
+        retrievals=[_retrieval("Common_Errors.md#0", "Common_Errors.md")],
+        draft_solution=_draft(),
+        verifier_verdict=_verdict(0.30, grounded=False),
+    )
+    finalized = supervisor.finalize_clarify_downgrade(state)
+    out = state_to_output(finalized)
+    assert out.resolution_kind == "clarify"
+    assert out.cited_sources == []
+    assert out.proposed_solution is None
+
+
 def test_state_to_output_pre_finalize_state_raises() -> None:
     """A state that hasn't reached a finalize node has no resolution_kind."""
     state = TicketState(
@@ -345,4 +386,19 @@ def test_state_to_output_pre_finalize_state_raises() -> None:
 def test_state_to_output_no_classification_raises() -> None:
     state = TicketState(ticket=_ticket(), resolution_kind="clarify", final_confidence=0.3)
     with pytest.raises(ValueError, match=r"state.classification is None"):
+        state_to_output(state)
+
+
+def test_state_to_output_no_final_confidence_raises() -> None:
+    """The defensive check exists in case a future finalize-node author
+    forgets to set ``final_confidence``. Pin it so the check stays live.
+    """
+    state = TicketState(
+        ticket=_ticket(),
+        classification=_classification(),
+        resolution_kind="clarify",
+        preliminary_assessment="x",
+        # final_confidence intentionally None
+    )
+    with pytest.raises(ValueError, match=r"state.final_confidence is None"):
         state_to_output(state)

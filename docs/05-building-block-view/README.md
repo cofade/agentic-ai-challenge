@@ -36,7 +36,7 @@ config:
     curve: linear
 ---
 graph TD;
-	__start__([__start__]):::first
+	__start__([<p>__start__</p>]):::first
 	triage(triage)
 	retrieve(retrieve)
 	reason(reason)
@@ -45,7 +45,7 @@ graph TD;
 	finalize_solve(finalize_solve)
 	finalize_clarify(finalize_clarify)
 	finalize_clarify_downgrade(finalize_clarify_downgrade)
-	__end__([__end__]):::last
+	__end__([<p>__end__</p>]):::last
 	__start__ --> triage;
 	clarify --> finalize_clarify;
 	reason --> verify;

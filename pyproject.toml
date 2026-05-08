@@ -21,7 +21,7 @@ dependencies = [
     "sentence-transformers>=3.0.0",
     "numpy>=1.26",
     "anthropic>=0.40.0",
-    "langgraph>=0.2.0",
+    "langgraph>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]
@@ -125,6 +125,13 @@ markers = [
     "integration: tests that exercise the full pipeline (mocked LLM allowed)",
     "live_api: tests that require real API keys (skipped by default)",
     "network: tests that need outbound network access (e.g. HuggingFace model download)",
+]
+# LangGraph 1.x emits a pending deprecation warning on import about the
+# default `allowed_objects` value -- a future-version concern from
+# langgraph itself, not from our code. The warning fires once per test
+# run and is purely informational.
+filterwarnings = [
+    "ignore::langchain_core._api.deprecation.LangChainPendingDeprecationWarning",
 ]
 
 [tool.coverage.run]

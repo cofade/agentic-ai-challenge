@@ -85,6 +85,7 @@ def finalize_solve(state: TicketState) -> TicketState:
         step,
         resolution_kind="solve",
         proposed_solution=state.draft_solution.solution,
+        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
         final_confidence=score,
     )
 
@@ -120,6 +121,7 @@ def finalize_clarify(state: TicketState) -> TicketState:
         step,
         resolution_kind="clarify",
         preliminary_assessment=assessment,
+        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
         final_confidence=CLARIFY_CONFIDENCE_PLACEHOLDER,
     )
 
@@ -142,10 +144,13 @@ def finalize_clarify_downgrade(state: TicketState) -> TicketState:
             f"these claims were not grounded in the cited KB chunks: {ungrounded}."
         )
     else:
-        # Aggregate grounding fell below the threshold even though every
-        # individual claim was marked grounded -- the verifier's overall
-        # judgment overrides the per-claim votes. Phase 5 eval will probe
-        # this disagreement; for now we surface it explicitly.
+        # Defensive branch; not expected to fire in practice. The verifier
+        # LLM emits both numbers in the same call and is unlikely to
+        # contradict itself (low aggregate, every per-claim grounded).
+        # Phase 5 eval will probe whether this disagreement actually
+        # surfaces; until then we surface it loudly rather than silently
+        # default to "no claims" messaging that would suggest the wrong
+        # cause.
         assessment = (
             "Could not confidently propose a solution: aggregate grounding "
             f"score {state.verifier_verdict.grounding_score:.2f} fell below "
@@ -165,5 +170,6 @@ def finalize_clarify_downgrade(state: TicketState) -> TicketState:
         step,
         resolution_kind="clarify",
         preliminary_assessment=assessment,
+        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
         final_confidence=CLARIFY_CONFIDENCE_PLACEHOLDER,
     )

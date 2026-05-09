@@ -9,7 +9,7 @@ The KB currently contains documents in both English and German:
 
 - `kb/original/` — English documentation (user manuals, error guides,
   installation references).
-- `kb/electrix_ai_release_notes/` — 4 EN + 2 DE synthetic release notes.
+- `kb/electrix_ai_release_notes/` — 14 DE real release notes (v7.3.0.16–v7.4.0.17, issue #48).
 
 Support tickets may arrive in either language. Two architectural options
 exist:
@@ -92,8 +92,12 @@ Specifically:
   A DE query for `Lizenzaktivierung` will not match EN chunks that say
   "license activation" via BM25 (no shared tokens after stopword removal).
   The embedding layer compensates, but BM25's contribution to the RRF fused
-  score is limited to language-aligned hits. On the current synthetic corpus
-  this is acceptable; Phase 5 will measure the gap.
+  score is limited to language-aligned hits. The issue is *more* acute since
+  issue #48 made the release-notes corpus all-DE (no EN release-note files
+  remain to mix against); an EN ticket querying release-note content now
+  relies entirely on the embedding layer for BM25-side credit. Phase 5 will
+  measure the gap. A future improvement is to add the English-language page
+  from `https://www.wscad.com/en/electrix/release-notes/`.
 - **Negative — retrieval quality for low-resource language pairs is
   unvalidated.** The cross-lingual test in Phase 1 uses a single DE query
   against a known EN chunk. Phase 5's eval set (#32) includes one DE ticket;

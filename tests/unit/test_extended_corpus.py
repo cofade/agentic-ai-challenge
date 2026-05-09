@@ -4,9 +4,15 @@ Pins the corpus-extension behaviour: when the KB is the union of
 ``kb/original/`` + ``kb/electrix_ai_release_notes/``, a topical query
 (``"license activation in v7.3.2"``) surfaces a Phase-2 v7.3.2 release
 note in the top ranks. This is a behavioural property of the lexical and
-semantic match between query and synthetic body — not version-aware
+semantic match between query and real DE body — not version-aware
 retrieval. Genuine version-aware retrieval (metadata-conditioned filter)
 is future work; see ``docs/11-risks-and-technical-debt/README.md``.
+
+Note: the corpus is real German-language content (issue #48). The v7.3.2.*
+notes share a boilerplate header ("Zusätzlich zur Version 7.3.2.2...") which
+gives BM25 a free shared-token head-start across that sub-group; ranking
+within the v7.3.2.* group is therefore partially noise rather than content
+match. The test only asserts top-3 membership, not a specific top-1 file.
 """
 
 from __future__ import annotations
@@ -49,11 +55,12 @@ def test_multi_version_query_surfaces_v7_3_2_release_note(tmp_path: Path) -> Non
 
     Uses the real ``paraphrase-multilingual-MiniLM-L12-v2`` encoder.
     Skipped in environments without HuggingFace access (matches the
-    pattern in ``test_embedding.py``). Asserts the v7.3.2.16.md note
-    ranks top-1 and at least one v7.3.2.* note appears in top-3 — both
-    properties are decided by lexical match, not version-aware
-    retrieval; rebase the assertion if a deliberate change to the
-    Phase-2 synthetic bodies shifts the top-1 file.
+    pattern in ``test_embedding.py``). Asserts that at least one
+    v7.3.2.* note appears in top-3 — the property that matters for
+    issue #16's acceptance criterion. No specific top-1 file is pinned
+    because the real DE corpus does not contain a synthetic "license
+    activation" sentence; ranking within the v7.3.2.* sub-group is
+    partly noise from a shared boilerplate header.
     """
     try:
         from sentence_transformers import SentenceTransformer
@@ -69,10 +76,6 @@ def test_multi_version_query_surfaces_v7_3_2_release_note(tmp_path: Path) -> Non
     results = hybrid.retrieve("license activation in v7.3.2", k=5)
 
     assert results, "extended corpus must produce hits for a v7.3.2 query"
-    assert results[0].chunk.source_file == "electrix_ai_release_notes/v7.3.2.16.md", (
-        f"expected v7.3.2.16.md to rank top-1; got "
-        f"{[(r.rank, r.chunk.source_file) for r in results]}"
-    )
     v7_3_2_in_top3 = sum(1 for r in results[:3] if V7_3_2_PATTERN.match(r.chunk.source_file))
     assert v7_3_2_in_top3 >= 1, (
         f"expected at least one v7.3.2.* note in top-3; got "

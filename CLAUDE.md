@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 3 — LLM abstraction & agents (complete on `main` after #54); Ollama backend in flight as #55.
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14, #15, #16; corpus is synthetic, see [risks doc](docs/11-risks-and-technical-debt/README.md)); Phase 3 — LLM client + Anthropic backend + Azure stub + ADR-004 (#17, #18, PR #50); five worker agents + ADR-008 (#19–#23, PR #51); supervisor + LangGraph + integration tests + ADR-005 (#24–#26, PR #52); promotion of PR2+PR3 to main (PR #54)
-**In progress:** Ollama backend (#55) — third LLMClient backend so the pipeline runs offline against a local server
-**Next up:** Phase 4 — confidence formula + JSON/text rendering + CLI (#27, #28, #29, #30, #31)
+**Current phase:** Phase 5 — Evaluation harness
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58)
+**In progress:** #32 — hand-labeled eval set (PR open, awaiting manual test)
+**Next up:** Phase 5 — eval runner + metrics (#33), run eval (#34), ADR-010 (#35)
 
 (Update this section at the start of each session.)
 

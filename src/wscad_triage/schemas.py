@@ -20,6 +20,15 @@ Category = Literal["Licensing", "Installation", "Errors", "Performance", "Other"
 Priority = Literal["Low", "Medium", "High", "Critical"]
 ResolutionKind = Literal["solve", "clarify"]
 RetrieverName = Literal["bm25", "embedding", "rrf"]
+CoverageCase = Literal[
+    "resolvable EN",
+    "resolvable DE",
+    "clarify missing OS",
+    "clarify vague crash",
+    "licensing vs installation",
+    "ungrounded claim trap",
+    "multilingual mixed",
+]
 
 
 class TicketMetadata(BaseModel):
@@ -185,6 +194,23 @@ class Output(BaseModel):
         return self
 
 
+class EvalTicket(Ticket):
+    """A labelled ticket used by the Phase 5 evaluation harness.
+
+    Extends :class:`Ticket` with ground-truth fields required by the runner
+    (issue #33). ``coverage_case`` identifies which of the seven planned test
+    cases this ticket exercises so the runner can compute per-case metrics.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    expected_category: Category
+    expected_priority: Priority
+    should_clarify: bool
+    coverage_case: CoverageCase
+    notes: str = ""
+
+
 class TicketState(BaseModel):
     """Mutable state object the LangGraph supervisor + workers read and write.
 
@@ -214,7 +240,9 @@ __all__ = [
     "ClaimEvidence",
     "ClaimVerdict",
     "Classification",
+    "CoverageCase",
     "DraftSolution",
+    "EvalTicket",
     "KBChunk",
     "Output",
     "Priority",

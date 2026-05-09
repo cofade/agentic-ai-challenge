@@ -1,0 +1,219 @@
+[
+  {
+    "ticket_id": "E-01",
+    "text": "After updating ELECTRIX AI to version 7.4.0.17, the application no longer starts. A dialog box shows 'Error 504' on launch. Reinstalling did not help.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.4.0.17",
+      "os": "Windows 10"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": false,
+    "coverage_case": "resolvable EN",
+    "notes": "Error 504 is explicitly documented as a licensing/activation issue in Common_Errors.md; full metadata available."
+  },
+  {
+    "ticket_id": "E-02",
+    "text": "I just set up ELECTRIX AI 7.4.0.17 on a new workstation running Windows 10. The installer completed without errors, but when I launch the application it immediately closes with an error message about a missing runtime component.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.4.0.17",
+      "os": "Windows 10"
+    },
+    "expected_category": "Installation",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "resolvable EN",
+    "notes": "Fresh install on a new machine; Installation_Requirements.md documents the .NET Runtime 6.0 prerequisite as the resolution."
+  },
+  {
+    "ticket_id": "E-03",
+    "text": "After activating ELECTRIX AI offline using the License Manager, the application worked for one day and then started showing the license as expired. Our support contract is still valid.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.16",
+      "os": "Windows 10"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "resolvable EN",
+    "notes": "Offline activation showing expired; Licensing_Offline_Activation.md explicitly covers 'expired or mismatched licenses' and the License Manager workflow."
+  },
+  {
+    "ticket_id": "E-04",
+    "text": "Nach der Neuinstallation von ELECTRIX AI auf einem anderen Rechner lässt sich die Lizenz nicht aktivieren. Der Lizenz-Manager zeigt an, dass die Lizenz abgelaufen oder nicht übereinstimmend ist. Version 7.3.0.24, Windows 10.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.0.24",
+      "os": "Windows 10"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": false,
+    "coverage_case": "resolvable DE",
+    "notes": "German ticket; 'abgelaufen oder nicht übereinstimmend' maps directly to Licensing_Offline_Activation.md; full metadata present."
+  },
+  {
+    "ticket_id": "E-05",
+    "text": "Die Installation von ELECTRIX AI 2025 schlägt fehl. Das Setup bricht mit einer Fehlermeldung ab, dass eine Komponente fehlt. Betriebssystem: Windows 11, Version 7.3.1.4.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.1.4",
+      "os": "Windows 11"
+    },
+    "expected_category": "Installation",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "resolvable DE",
+    "notes": "German installation failure; Installation_Requirements.md documents the .NET 6.0 prerequisite; full metadata present."
+  },
+  {
+    "ticket_id": "E-06",
+    "text": "ELECTRIX AI will not start after installation. A message appears stating that a required runtime component is missing. I have confirmed the installer completed without errors.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.8"
+    },
+    "expected_category": "Installation",
+    "expected_priority": "Medium",
+    "should_clarify": true,
+    "coverage_case": "clarify missing OS",
+    "notes": "No OS field in metadata; Installation_Requirements.md references Windows 10 and .NET 6.0, but OS version is needed to confirm compatibility."
+  },
+  {
+    "ticket_id": "E-07",
+    "text": "License activation keeps failing every single time I try. I have tried both online and offline activation but neither works.",
+    "metadata": {
+      "product": "ELECTRIX AI"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": true,
+    "coverage_case": "clarify missing OS",
+    "notes": "No OS and no version in metadata; Licensing_Offline_Activation.md is grounded but OS and version are needed to narrow down the cause."
+  },
+  {
+    "ticket_id": "E-08",
+    "text": "The program sometimes crashes. I'm not sure when exactly it happens — it just closes without warning. This has been going on for a few weeks.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.14",
+      "os": "Windows 10"
+    },
+    "expected_category": "Errors",
+    "expected_priority": "Medium",
+    "should_clarify": true,
+    "coverage_case": "clarify vague crash",
+    "notes": "No reproducible steps or error message; full metadata present but text is too vague for any specific KB chunk to apply."
+  },
+  {
+    "ticket_id": "E-09",
+    "text": "ELECTRIX AI friert gelegentlich ein. Ich kann das Programm dann nur noch über den Task-Manager beenden. Es passiert nicht immer.",
+    "metadata": {
+      "product": "ELECTRIX AI"
+    },
+    "expected_category": "Performance",
+    "expected_priority": "Low",
+    "should_clarify": true,
+    "coverage_case": "clarify vague crash",
+    "notes": "German vague freeze report; no version, no OS, no reproduction steps; cannot ground a solution in the KB."
+  },
+  {
+    "ticket_id": "E-10",
+    "text": "After uninstalling and reinstalling ELECTRIX AI, my existing license is no longer recognised by the License Manager. The activation screen shows 'license mismatch'. Product: ELECTRIX AI, version 7.3.2.3, OS: Windows 10.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.3",
+      "os": "Windows 10"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": false,
+    "coverage_case": "licensing vs installation",
+    "notes": "Surface form mentions reinstall (sounds like Installation) but the root issue is the license; Licensing_Offline_Activation.md covers 'mismatched licenses'; full metadata present."
+  },
+  {
+    "ticket_id": "E-11",
+    "text": "The ELECTRIX AI setup wizard exits partway through with an error about a license server being unreachable. I cannot complete the installation.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "os": "Windows 11"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": true,
+    "coverage_case": "licensing vs installation",
+    "notes": "Installation context but root cause is licensing; missing version makes it ambiguous which release note applies; requires clarification."
+  },
+  {
+    "ticket_id": "E-12",
+    "text": "The new AI-powered GPU-accelerated auto-routing optimisation feature introduced in the latest update is not working correctly. Routes are being generated incorrectly even after enabling the dedicated GPU mode in the advanced settings panel.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.4.0.17",
+      "os": "Windows 11"
+    },
+    "expected_category": "Other",
+    "expected_priority": "Low",
+    "should_clarify": true,
+    "coverage_case": "ungrounded claim trap",
+    "notes": "References a 'GPU-accelerated auto-routing' feature and 'dedicated GPU mode' that do not appear anywhere in the KB; verifier should score below 0.4."
+  },
+  {
+    "ticket_id": "E-13",
+    "text": "We applied hotfix KB-2025-0041 as recommended by support, but ELECTRIX AI now shows a critical error on startup referencing a corrupted component registry entry introduced by that hotfix.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.10",
+      "os": "Windows 10"
+    },
+    "expected_category": "Errors",
+    "expected_priority": "Medium",
+    "should_clarify": true,
+    "coverage_case": "ungrounded claim trap",
+    "notes": "References hotfix 'KB-2025-0041' and 'component registry entry' concepts that do not appear in any KB chunk; verifier cannot ground a solution."
+  },
+  {
+    "ticket_id": "E-14",
+    "text": "Nach dem letzten Update von ELECTRIX AI startet das Programm nicht mehr. Beim Start erscheint die Fehlermeldung 'Error 504'. Eine Neuinstallation hat das Problem nicht behoben.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.2",
+      "os": "Windows 10"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": false,
+    "coverage_case": "multilingual mixed",
+    "notes": "German ticket body with English error code 'Error 504'; Common_Errors.md and Licensing_Offline_Activation.md both ground the answer."
+  },
+  {
+    "ticket_id": "E-15",
+    "text": "Ich habe ELECTRIX AI v7.3.0.23 auf einem neuen Windows 11 PC frisch installiert. Das Programm startet nicht. Es erscheint eine Fehlermeldung über eine fehlende Laufzeitkomponente.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.0.23",
+      "os": "Windows 11"
+    },
+    "expected_category": "Installation",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "multilingual mixed",
+    "notes": "German fresh-install ticket with 'fehlende Laufzeitkomponente'; grounded in Installation_Requirements.md (.NET Runtime 6.0 requirement). Changed to Installation/Medium from Errors/High to reflect the actual root cause."
+  },
+  {
+    "ticket_id": "E-16",
+    "text": "Hallo, ich habe ein Problem. After the latest update the License Manager stopped working and I cannot activate my license anymore. The error appears right after I click 'Activate'.",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.14"
+    },
+    "expected_category": "Licensing",
+    "expected_priority": "High",
+    "should_clarify": true,
+    "coverage_case": "multilingual mixed",
+    "notes": "Mixed German/English ticket; no OS field; Licensing_Offline_Activation.md grounds the domain but OS is needed to confirm compatibility — clarification required."
+  }
+]

@@ -13,8 +13,8 @@ An agentic AI ticket-triage system: processes technical support tickets, retriev
 | 0 | Bootstrap (this layer) | Done |
 | 1 | Pydantic schemas + KB foundation (loader, chunker, BM25, embeddings, hybrid retriever) | Done |
 | 2 | KB extension (ELECTRIX AI release notes; synthetic — see [risks doc](docs/11-risks-and-technical-debt/README.md)) | Done |
-| 3 | LLM abstraction + supervisor and worker agents in LangGraph | In progress |
-| 4 | Confidence aggregation, output renderers, CLI | Open |
+| 3 | LLM abstraction + supervisor and worker agents in LangGraph | Done |
+| 4 | Confidence aggregation, output renderers, CLI | Done |
 | 5 | Hand-labeled eval set + metrics harness | Open |
 | 6 | Reviewer-facing README, arc42 fill-in, ADR cross-refs | Open |
 | 7 | Senior-reviewer pass, CI green on main, submission | Open |
@@ -40,7 +40,7 @@ uv run mypy src/
 uv run bandit -r src/ --severity-level high
 ```
 
-The CLI itself (`uv run wscad-triage tickets/tickets.json`) is a stub today; it lands with [issue #30](https://github.com/cofade/agentic-ai-challenge/issues/30) at the close of Phase 4.
+The CLI (`uv run wscad-triage tickets/tickets.json --out out/`) is implemented as of Phase 4 ([issue #30](https://github.com/cofade/agentic-ai-challenge/issues/30)). It requires a running LLM backend; see "Quickstart with Ollama" below for the offline path.
 
 ## Configuration
 
@@ -71,7 +71,7 @@ ollama serve
 
 # 4. Run the pipeline
 uv sync --all-extras
-uv run wscad-triage tickets/tickets.json --out out/  # CLI lands in Phase 4 (#30)
+uv run wscad-triage tickets/tickets.json --out out/
 ```
 
 Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested choice. Smaller open-weight models can emit malformed tool-call JSON; see [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) for the recommended-model list and the Phase 5 fidelity-benchmark plan.
@@ -82,7 +82,7 @@ Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested c
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — the build plan; one entry per GitHub Issue, organised by phase.
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map and the LangGraph diagram of the supervisor + workers topology.
-- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Seven are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction — three backends including Ollama), ADR-005 (supervisor topology), ADR-006 (hybrid RAG strategy), and ADR-008 (groundedness safety gate); the rest are pending and land alongside the components they document.
+- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Nine are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction — three backends including Ollama), ADR-005 (supervisor topology), ADR-006 (hybrid RAG strategy), ADR-007 (confidence quantification formula), ADR-008 (groundedness safety gate), and ADR-009 (multilingual KB strategy); the rest are pending and land alongside the components they document.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 

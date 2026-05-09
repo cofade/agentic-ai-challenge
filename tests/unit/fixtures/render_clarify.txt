@@ -1,0 +1,22 @@
+Ticket ID: T-002
+
+Category: Installation
+Priority: Medium
+
+Status:
+Insufficient information to determine root cause with acceptable confidence.
+
+Preliminary Assessment:
+The application crash may have multiple root causes. Missing OS and version information prevents a definitive diagnosis.
+
+Confidence:
+0.25
+
+Reasoning Trace:
+- [triage] classify: Installation category; Medium priority; missing critical fields: os, version.
+- [clarify] generate_questions: Generated 2 follow-up questions targeting the detected gaps.
+- [supervisor] finalize_clarify: Missing fields [os, version] prevent retrieval; routed to clarify.
+
+Required Follow-up Questions:
+1. Which operating system and version is the application installed on?
+2. Which version of WSCAD Suite was installed?

@@ -39,6 +39,7 @@ _GAP_SYNONYMS: dict[str, tuple[str, ...]] = {
     "os": ("operating system", "windows", "linux", "macos"),
     "version": ("release", "build"),
     "product": ("product line", "edition"),
+    "log_excerpt": ("logs", "log file", "log files", "error log", "event log", "application log"),
 }
 
 _SYSTEM_PROMPT = """You are the clarify agent.
@@ -148,7 +149,13 @@ def _references_any_gap(question: str, gaps: list[str]) -> bool:
         registered_synonyms = _GAP_SYNONYMS.get(gap_lower, ())
         terms: list[str] = [gap_lower]
         if "_" in gap_lower:
-            terms.append(gap_lower.replace("_", " "))
+            spaced = gap_lower.replace("_", " ")
+            terms.append(spaced)
+            # Individual words as fallback for natural rephrasing that splits
+            # the phrase (e.g. "steps you followed to reproduce" for
+            # "steps_to_reproduce"). Words shorter than 3 chars ("to", "of")
+            # are excluded to avoid matching trivial tokens.
+            terms.extend(w for w in spaced.split() if len(w) >= 3)
         terms.extend(registered_synonyms)
         for term in terms:
             if re.search(rf"\b{re.escape(term)}\b", q_lower):

@@ -226,6 +226,28 @@ def test_snake_case_gap_matches_human_shaped_question() -> None:
     assert len(new_state.followup_questions) == 2
 
 
+def test_split_phrase_gap_matches_natural_phrasing() -> None:
+    """Regression: gpt-oss:20b writes "steps you followed to reproduce" which
+    splits the exact phrase "steps to reproduce". Component-word matching
+    must accept it.
+    """
+    state = _state_with_gaps("log_excerpt", "steps_to_reproduce")
+    mock = MockLLMClient(
+        script={
+            "clarify agent": _questions_response(
+                {
+                    "questions": [
+                        "Could you describe the exact steps you followed to reproduce the failure?",
+                        "Can you share any log output from when this happened?",
+                    ]
+                }
+            )
+        }
+    )
+    new_state = clarify.run(state, mock)
+    assert len(new_state.followup_questions) == 2
+
+
 def test_synonym_counts_as_gap_reference() -> None:
     """A question that uses 'operating system' references the 'os' gap."""
     state = _state_with_gaps("os", "version")

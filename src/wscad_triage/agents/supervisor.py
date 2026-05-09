@@ -11,6 +11,10 @@ structured tool call (``emit_classification``, ``emit_draft``,
 ``emit_questions``, ``emit_verdict``). The supervisor is the deterministic
 glue between them. A future LLM-mediated decision swaps in by replacing
 the body of one routing function — the LangGraph topology stays the same.
+
+Phase 4 (#27, #28): finalize nodes now call ``compute_confidence`` so
+``final_confidence`` is a real score instead of the verifier passthrough /
+placeholder used in Phase 3.
 """
 
 from __future__ import annotations
@@ -18,18 +22,12 @@ from __future__ import annotations
 from typing import Literal
 
 from wscad_triage.agents._state import append_step
+from wscad_triage.confidence import compute_confidence
+from wscad_triage.config import RubricWeightsConfig
 from wscad_triage.schemas import ReasoningStep, TicketState
 
 GROUNDING_THRESHOLD = 0.4
 """ADR-008 gate: groundedness scores below this force the clarify path."""
-
-CLARIFY_CONFIDENCE_PLACEHOLDER = 0.3
-"""Placeholder for clarify outcomes until #28 lands ``min(rubric, verifier)``.
-
-Below the 0.5 threshold by construction so a clarify outcome never
-masquerades as a confident solve. # TODO(#28): replace with
-``min(rubric, verifier)`` per ADR-007.
-"""
 
 
 def route_after_triage(state: TicketState) -> Literal["clarify", "retrieve"]:
@@ -46,19 +44,20 @@ def route_after_triage(state: TicketState) -> Literal["clarify", "retrieve"]:
 
 def route_after_verify(
     state: TicketState,
+    grounding_threshold: float = GROUNDING_THRESHOLD,
 ) -> Literal["finalize_solve", "finalize_clarify_downgrade"]:
-    """ADR-008 gate: ``grounding_score < 0.4`` forces clarify-downgrade."""
+    """ADR-008 gate: ``grounding_score < grounding_threshold`` forces clarify-downgrade."""
     if state.verifier_verdict is None:
         raise ValueError(
             "supervisor.route_after_verify: state.verifier_verdict is None; "
             "verify must run before this routing decision"
         )
-    if state.verifier_verdict.grounding_score < GROUNDING_THRESHOLD:
+    if state.verifier_verdict.grounding_score < grounding_threshold:
         return "finalize_clarify_downgrade"
     return "finalize_solve"
 
 
-def finalize_solve(state: TicketState) -> TicketState:
+def finalize_solve(state: TicketState, weights: RubricWeightsConfig) -> TicketState:
     """Solve sink: promote draft.solution to proposed_solution."""
     if state.draft_solution is None:
         raise ValueError(
@@ -70,13 +69,14 @@ def finalize_solve(state: TicketState) -> TicketState:
             "supervisor.finalize_solve: state.verifier_verdict is None; the "
             "solve path requires verify to have run"
         )
-    score = state.verifier_verdict.grounding_score
+    final_confidence, breakdown = compute_confidence(state, weights)
     step = ReasoningStep(
         actor="supervisor",
         action="finalize_solve",
         evidence_refs=[c.chunk_id for c in state.draft_solution.claims],
         rationale=(
-            f"grounding_score={score:.2f} >= {GROUNDING_THRESHOLD}; "
+            f"grounding_score={state.verifier_verdict.grounding_score:.2f} >= "
+            f"{GROUNDING_THRESHOLD}; confidence={final_confidence:.2f}; "
             f"emitting solution from reason agent's draft."
         ),
     )
@@ -85,12 +85,12 @@ def finalize_solve(state: TicketState) -> TicketState:
         step,
         resolution_kind="solve",
         proposed_solution=state.draft_solution.solution,
-        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
-        final_confidence=score,
+        final_confidence=final_confidence,
+        confidence_components=breakdown,
     )
 
 
-def finalize_clarify(state: TicketState) -> TicketState:
+def finalize_clarify(state: TicketState, weights: RubricWeightsConfig) -> TicketState:
     """Missing-fields sink: clarify already populated followup_questions.
 
     The preliminary_assessment is a short rubric-style summary of the
@@ -107,12 +107,13 @@ def finalize_clarify(state: TicketState) -> TicketState:
         f"{state.classification.rationale} "
         f"Awaiting clarification on: {', '.join(gaps) if gaps else '(no gaps recorded)'}."
     )
+    final_confidence, breakdown = compute_confidence(state, weights)
     step = ReasoningStep(
         actor="supervisor",
         action="finalize_clarify",
         evidence_refs=[],
         rationale=(
-            f"Triage flagged {len(gaps)} critical gap(s); "
+            f"Triage flagged {len(gaps)} critical gap(s); confidence={final_confidence:.2f}; "
             f"emitting follow-up questions instead of a solution."
         ),
     )
@@ -121,12 +122,12 @@ def finalize_clarify(state: TicketState) -> TicketState:
         step,
         resolution_kind="clarify",
         preliminary_assessment=assessment,
-        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
-        final_confidence=CLARIFY_CONFIDENCE_PLACEHOLDER,
+        final_confidence=final_confidence,
+        confidence_components=breakdown,
     )
 
 
-def finalize_clarify_downgrade(state: TicketState) -> TicketState:
+def finalize_clarify_downgrade(state: TicketState, weights: RubricWeightsConfig) -> TicketState:
     """Ungrounded-claim sink: synthesise an assessment from verdicts.
 
     The clarify worker is NOT called here -- its precondition (non-empty
@@ -156,13 +157,14 @@ def finalize_clarify_downgrade(state: TicketState) -> TicketState:
             f"score {state.verifier_verdict.grounding_score:.2f} fell below "
             f"the {GROUNDING_THRESHOLD} threshold despite per-claim agreement."
         )
+    final_confidence, breakdown = compute_confidence(state, weights)
     step = ReasoningStep(
         actor="supervisor",
         action="finalize_clarify_downgrade",
         evidence_refs=[],
         rationale=(
             f"grounding_score={state.verifier_verdict.grounding_score:.2f} "
-            f"< {GROUNDING_THRESHOLD}; downgrading to clarify."
+            f"< {GROUNDING_THRESHOLD}; confidence={final_confidence:.2f}; downgrading to clarify."
         ),
     )
     return append_step(
@@ -170,6 +172,6 @@ def finalize_clarify_downgrade(state: TicketState) -> TicketState:
         step,
         resolution_kind="clarify",
         preliminary_assessment=assessment,
-        # TODO(#28): replace with min(rubric, verifier) per ADR-007.
-        final_confidence=CLARIFY_CONFIDENCE_PLACEHOLDER,
+        final_confidence=final_confidence,
+        confidence_components=breakdown,
     )

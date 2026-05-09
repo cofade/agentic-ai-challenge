@@ -2,7 +2,7 @@
 
 Three canonical execution paths through the LangGraph state machine — the **resolvable** path, the **clarification-required (missing-fields)** path, and the **hallucination-trap (downgrade)** path. Routing decisions are deterministic functions on `TicketState` (see [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md)); the static state diagram lives in [`../05-building-block-view/`](../05-building-block-view/).
 
-The placeholder confidence used in Phase 3 is the verifier's grounding score for solve outcomes and a fixed 0.3 for clarify outcomes. Phase 4 issue #28 replaces both with `min(rubric_score, verifier_score)`.
+Phase 4 (#27, #28) ships `confidence.py`: `final_confidence = min(rubric_score, verifier_score)` on the solve path, and `final_confidence = rubric_score` (no verifier on the clarify short-circuit). The rubric combines two components (retrieval quality and metadata completeness) with weights from `config.yaml`; ADR-007 (#31) documents the design.
 
 ## Resolvable path (high confidence)
 
@@ -19,7 +19,7 @@ The placeholder confidence used in Phase 3 is the verifier's grounding score for
 6.  verify runs: LLM-as-judge per claim; aggregate grounding_score >= 0.4
 7.  Conditional edge route_after_verify -> "finalize_solve"
 8.  finalize_solve sets resolution_kind="solve",
-    proposed_solution=draft.solution, final_confidence=grounding_score
+    proposed_solution=draft.solution, final_confidence=min(rubric_score, verifier_score)
 9.  pipeline.state_to_output projects the final TicketState onto an Output
     (cited_sources derived from claim chunk_ids' source files)
 10. Output (JSON + text rendering, Phase 4 #29) written
@@ -37,7 +37,8 @@ The placeholder confidence used in Phase 3 is the verifier's grounding score for
 5. Direct edge clarify -> "finalize_clarify"
 6. finalize_clarify sets resolution_kind="clarify",
    preliminary_assessment=<rationale + gaps>,
-   final_confidence=0.3 (placeholder, ADR-005)
+   final_confidence=rubric_score (no verifier on this path; retrieval_quality=0.0
+   since retrieval was short-circuited, so rubric < 0.5 by construction)
 7. pipeline.state_to_output emits Output with followup_questions
 ```
 
@@ -52,7 +53,7 @@ The retriever is never called on this path — saving a vector-DB round-trip on 
 8.    finalize_clarify_downgrade sets resolution_kind="clarify",
       preliminary_assessment="Could not confidently propose a solution: ...",
       followup_questions stays empty,
-      final_confidence=0.3 (placeholder, ADR-005)
+      final_confidence=min(rubric_score, verifier_score)
 9.    pipeline.state_to_output emits the clarify-shaped Output
 ```
 

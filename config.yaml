@@ -1,0 +1,21 @@
+# Runtime configuration for the wscad-triage pipeline.
+#
+# All values have sensible defaults (see src/wscad_triage/config.py) so this
+# file is optional — omitting it produces the same behaviour as shipping it
+# unchanged.  Edit here rather than in code to tune weights without
+# touching Python.
+
+confidence:
+  rubric_weights:
+    # Fraction of the rubric score contributed by each component.
+    # The two weights must sum to 1.0 for the rubric to stay in [0, 1].
+    retrieval_quality: 0.5
+    metadata_completeness: 0.5
+    # Score penalty per missing critical metadata field.
+    # With the default 0.25, four or more missing fields drive the
+    # metadata_completeness component to 0.0.
+    penalty_per_field: 0.25
+
+  thresholds:
+    # ADR-008 gate: verifier grounding_score below this forces clarify-downgrade.
+    grounding: 0.4

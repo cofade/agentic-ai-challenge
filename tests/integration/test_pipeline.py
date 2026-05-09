@@ -136,8 +136,10 @@ def test_resolvable_ticket_returns_solve_output(mock_llm: Any, stub_retriever_fa
     assert output.resolution_kind == "solve"
     assert output.proposed_solution == "Re-activate the offline license via License Manager."
     assert output.preliminary_assessment is None
-    assert output.confidence == 0.85
-    assert output.confidence_breakdown == {"verifier": 0.85}
+    assert output.confidence == pytest.approx(0.85)
+    assert output.confidence_breakdown == pytest.approx(
+        {"retrieval_quality": 1.0, "metadata_completeness": 1.0, "rubric": 1.0, "verifier": 0.85}
+    )
     assert output.cited_sources == ["Common_Errors.md"]
     # Trace ordering: triage -> retrieve -> reason -> verify -> finalize_solve.
     actors = [s.actor for s in output.reasoning_trace]
@@ -192,8 +194,11 @@ def test_clarify_required_when_metadata_missing(mock_llm: Any, stub_retriever_fa
     assert "os" in gap_set
     assert "version" in gap_set
     assert len(output.followup_questions) == 2
-    assert output.confidence == 0.3  # CLARIFY_CONFIDENCE_PLACEHOLDER
-    assert output.confidence_breakdown == {}  # no verifier on this path
+    # rubric = 0.5 * 0.0 (no retrievals) + 0.5 * 0.5 (two missing fields → 1 - 2*0.25) = 0.25
+    assert output.confidence == pytest.approx(0.25)
+    assert output.confidence_breakdown == pytest.approx(
+        {"retrieval_quality": 0.0, "metadata_completeness": 0.5, "rubric": 0.25}
+    )
     assert output.cited_sources == []  # no draft; nothing to cite
     # Retriever was never called -- short-circuit through clarify.
     assert retriever.calls == []
@@ -351,8 +356,12 @@ def test_ungrounded_claim_trap_downgrades_to_clarify(
     assert output.preliminary_assessment is not None
     assert "Error 504 is fixed by reinstalling from USB." in output.preliminary_assessment
     assert output.followup_questions == []  # downgrade path emits no questions
-    assert output.confidence == 0.3
-    assert output.confidence_breakdown == {"verifier": 0.30}
+    # rubric = 1.0 (retrievals present, no missing fields); verifier = 0.30
+    # final = min(1.0, 0.30) = 0.30 < 0.5 (confidence threshold)
+    assert output.confidence == pytest.approx(0.30)
+    assert output.confidence_breakdown == pytest.approx(
+        {"retrieval_quality": 1.0, "metadata_completeness": 1.0, "rubric": 1.0, "verifier": 0.30}
+    )
     # cited_sources is empty on downgrade: the verifier explicitly
     # rejected these claims, so the chunk that "supports" them must
     # not appear as supporting evidence in the final Output.
@@ -425,3 +434,8 @@ def test_missing_os_short_circuits_before_retrieval(
     # The clarify agent's reasoning step records the gap it targeted.
     clarify_step = next(s for s in output.reasoning_trace if s.actor == "clarify")
     assert clarify_step.evidence_refs == ["os"]
+    # rubric = 0.5 * 0.0 (no retrievals) + 0.5 * 0.75 (one missing field → 1 - 1*0.25) = 0.375
+    assert output.confidence == pytest.approx(0.375)
+    assert output.confidence_breakdown == pytest.approx(
+        {"retrieval_quality": 0.0, "metadata_completeness": 0.75, "rubric": 0.375}
+    )

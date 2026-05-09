@@ -39,6 +39,7 @@ _GAP_SYNONYMS: dict[str, tuple[str, ...]] = {
     "os": ("operating system", "windows", "linux", "macos"),
     "version": ("release", "build"),
     "product": ("product line", "edition"),
+    "log_excerpt": ("logs", "log file", "log files", "error log", "event log", "application log"),
 }
 
 _SYSTEM_PROMPT = """You are the clarify agent.

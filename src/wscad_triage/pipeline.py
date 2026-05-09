@@ -21,6 +21,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from wscad_triage.agents import clarify, reason, retrieve, supervisor, triage, verify
+from wscad_triage.config import load_app_config
 from wscad_triage.kb import HybridRetriever
 from wscad_triage.llm import LLMClient
 from wscad_triage.schemas import Output, Ticket, TicketState
@@ -35,6 +36,10 @@ def build_graph(llm: LLMClient, retriever: HybridRetriever) -> Any:
     return type is ``Any`` because LangGraph does not export a stable
     public type alias.
     """
+    app_config = load_app_config()
+    weights = app_config.confidence.rubric_weights
+    grounding_threshold = app_config.confidence.thresholds.grounding
+
     g: StateGraph[TicketState, Any, TicketState, TicketState] = StateGraph(TicketState)
 
     g.add_node("triage", lambda s: triage.run(s, llm))
@@ -42,9 +47,12 @@ def build_graph(llm: LLMClient, retriever: HybridRetriever) -> Any:
     g.add_node("reason", lambda s: reason.run(s, llm))
     g.add_node("clarify", lambda s: clarify.run(s, llm))
     g.add_node("verify", lambda s: verify.run(s, llm))
-    g.add_node("finalize_solve", supervisor.finalize_solve)
-    g.add_node("finalize_clarify", supervisor.finalize_clarify)
-    g.add_node("finalize_clarify_downgrade", supervisor.finalize_clarify_downgrade)
+    g.add_node("finalize_solve", lambda s: supervisor.finalize_solve(s, weights))
+    g.add_node("finalize_clarify", lambda s: supervisor.finalize_clarify(s, weights))
+    g.add_node(
+        "finalize_clarify_downgrade",
+        lambda s: supervisor.finalize_clarify_downgrade(s, weights),
+    )
 
     g.add_edge(START, "triage")
     g.add_conditional_edges(
@@ -56,7 +64,7 @@ def build_graph(llm: LLMClient, retriever: HybridRetriever) -> Any:
     g.add_edge("reason", "verify")
     g.add_conditional_edges(
         "verify",
-        supervisor.route_after_verify,
+        lambda s: supervisor.route_after_verify(s, grounding_threshold=grounding_threshold),
         {
             "finalize_solve": "finalize_solve",
             "finalize_clarify_downgrade": "finalize_clarify_downgrade",

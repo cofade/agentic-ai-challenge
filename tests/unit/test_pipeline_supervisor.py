@@ -13,6 +13,10 @@ Two routing functions and three finalize sinks. Pinned behaviour:
   synthesised ``preliminary_assessment``.
 - ``state_to_output`` populates ``cited_sources`` from claim chunk_ids'
   source files (deduplicated, sorted).
+
+Phase 4 (#27/#28): finalize sinks now call ``compute_confidence``; tests
+supply ``RubricWeightsConfig`` and add realistic state (retrievals,
+confidence_components) where confidence values are asserted.
 """
 
 from __future__ import annotations
@@ -20,6 +24,7 @@ from __future__ import annotations
 import pytest
 
 from wscad_triage.agents import supervisor
+from wscad_triage.config import RubricWeightsConfig
 from wscad_triage.pipeline import state_to_output
 from wscad_triage.schemas import (
     ClaimEvidence,
@@ -34,8 +39,12 @@ from wscad_triage.schemas import (
     VerifierVerdict,
 )
 
+_DEFAULT_WEIGHTS = RubricWeightsConfig()
 
-def _retrieval(chunk_id: str, source_file: str, text: str = "...") -> RetrievalResult:
+
+def _retrieval(
+    chunk_id: str = "Common_Errors.md#0", source_file: str = "Common_Errors.md", text: str = "..."
+) -> RetrievalResult:
     return RetrievalResult(
         chunk=KBChunk(chunk_id=chunk_id, source_file=source_file, text=text),
         score=0.9,
@@ -157,17 +166,22 @@ def test_route_after_verify_no_verdict_raises() -> None:
 
 
 def test_finalize_solve_promotes_draft_solution() -> None:
+    # Include retrieval + verifier component to produce a realistic confidence.
+    # retrieval_quality=1.0, metadata_completeness=1.0 → rubric=1.0
+    # final = min(1.0, 0.85) = 0.85
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
+        retrievals=[_retrieval()],
         draft_solution=_draft(),
         verifier_verdict=_verdict(0.85),
+        confidence_components={"verifier": 0.85},
     )
-    new = supervisor.finalize_solve(state)
+    new = supervisor.finalize_solve(state, _DEFAULT_WEIGHTS)
     assert new.resolution_kind == "solve"
     assert new.proposed_solution == "Re-activate the offline license."
     assert new.preliminary_assessment is None
-    assert new.final_confidence == 0.85
+    assert new.final_confidence == pytest.approx(0.85)
     assert new.reasoning_trace[-1].actor == "supervisor"
     assert new.reasoning_trace[-1].action == "finalize_solve"
 
@@ -178,26 +192,28 @@ def test_finalize_solve_no_draft_raises() -> None:
         verifier_verdict=_verdict(0.85),
     )
     with pytest.raises(ValueError, match=r"state.draft_solution is None"):
-        supervisor.finalize_solve(state)
+        supervisor.finalize_solve(state, _DEFAULT_WEIGHTS)
 
 
 def test_finalize_solve_no_verdict_raises() -> None:
     state = TicketState(ticket=_ticket(), draft_solution=_draft())
     with pytest.raises(ValueError, match=r"state.verifier_verdict is None"):
-        supervisor.finalize_solve(state)
+        supervisor.finalize_solve(state, _DEFAULT_WEIGHTS)
 
 
 # ---------------------------------------------------------------------------
 # finalize_clarify
 
 
-def test_finalize_clarify_synthesises_assessment_and_uses_placeholder_confidence() -> None:
+def test_finalize_clarify_synthesises_assessment_and_confidence_below_half() -> None:
+    # retrieval_quality=0.0 (no retrievals), metadata_completeness = 1 - 2*0.25 = 0.5
+    # rubric = 0.5 * 0 + 0.5 * 0.5 = 0.25; no verifier → final = 0.25 < 0.5
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(gaps=["os", "version"]),
         followup_questions=["Which OS?", "Which version?"],
     )
-    new = supervisor.finalize_clarify(state)
+    new = supervisor.finalize_clarify(state, _DEFAULT_WEIGHTS)
     assert new.resolution_kind == "clarify"
     assert new.preliminary_assessment is not None
     # Whole-word membership against the comma-separated gap list rather
@@ -207,15 +223,14 @@ def test_finalize_clarify_synthesises_assessment_and_uses_placeholder_confidence
     assert "os" in {g.strip().rstrip(".") for g in gap_list.split(",")}
     assert "version" in {g.strip().rstrip(".") for g in gap_list.split(",")}
     assert new.proposed_solution is None
-    assert new.final_confidence == supervisor.CLARIFY_CONFIDENCE_PLACEHOLDER
-    # Below 0.5 by construction so a clarify never masquerades as a solve.
+    assert new.final_confidence == pytest.approx(0.25)
     assert new.final_confidence < 0.5
 
 
 def test_finalize_clarify_no_classification_raises() -> None:
     state = TicketState(ticket=_ticket())
     with pytest.raises(ValueError, match=r"state.classification is None"):
-        supervisor.finalize_clarify(state)
+        supervisor.finalize_clarify(state, _DEFAULT_WEIGHTS)
 
 
 # ---------------------------------------------------------------------------
@@ -231,13 +246,16 @@ def test_finalize_clarify_downgrade_lists_ungrounded_claims() -> None:
             ClaimVerdict(claim="claim C", grounded=False, rationale="no"),
         ],
     )
+    # Include retrieval + verifier component: rubric=1.0, final=min(1.0, 0.30)=0.30
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
+        retrievals=[_retrieval()],
         draft_solution=_draft(),
         verifier_verdict=verdict,
+        confidence_components={"verifier": 0.30},
     )
-    new = supervisor.finalize_clarify_downgrade(state)
+    new = supervisor.finalize_clarify_downgrade(state, _DEFAULT_WEIGHTS)
     assert new.resolution_kind == "clarify"
     assert new.proposed_solution is None
     assert new.preliminary_assessment is not None
@@ -245,7 +263,7 @@ def test_finalize_clarify_downgrade_lists_ungrounded_claims() -> None:
     assert "claim A" in new.preliminary_assessment
     assert "claim C" in new.preliminary_assessment
     assert "claim B" not in new.preliminary_assessment
-    assert new.final_confidence == supervisor.CLARIFY_CONFIDENCE_PLACEHOLDER
+    assert new.final_confidence == pytest.approx(0.30)
     assert new.followup_questions == []  # downgrade path emits no questions
 
 
@@ -262,10 +280,12 @@ def test_finalize_clarify_downgrade_aggregate_disagreement() -> None:
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
+        retrievals=[_retrieval()],
         draft_solution=_draft(),
         verifier_verdict=verdict,
+        confidence_components={"verifier": 0.30},
     )
-    new = supervisor.finalize_clarify_downgrade(state)
+    new = supervisor.finalize_clarify_downgrade(state, _DEFAULT_WEIGHTS)
     assert new.preliminary_assessment is not None
     assert "0.30" in new.preliminary_assessment
     assert "threshold" in new.preliminary_assessment
@@ -274,7 +294,7 @@ def test_finalize_clarify_downgrade_aggregate_disagreement() -> None:
 def test_finalize_clarify_downgrade_no_verdict_raises() -> None:
     state = TicketState(ticket=_ticket(), draft_solution=_draft())
     with pytest.raises(ValueError, match=r"state.verifier_verdict is None"):
-        supervisor.finalize_clarify_downgrade(state)
+        supervisor.finalize_clarify_downgrade(state, _DEFAULT_WEIGHTS)
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +302,8 @@ def test_finalize_clarify_downgrade_no_verdict_raises() -> None:
 
 
 def test_state_to_output_solve_path() -> None:
+    # retrieval_quality=1.0, metadata_completeness=1.0 → rubric=1.0
+    # final = min(1.0, 0.85) = 0.85
     state = TicketState(
         ticket=_ticket(),
         classification=_classification(),
@@ -290,14 +312,16 @@ def test_state_to_output_solve_path() -> None:
         verifier_verdict=_verdict(0.85),
         confidence_components={"verifier": 0.85},
     )
-    finalized = supervisor.finalize_solve(state)
+    finalized = supervisor.finalize_solve(state, _DEFAULT_WEIGHTS)
     out = state_to_output(finalized)
     assert isinstance(out, Output)
     assert out.resolution_kind == "solve"
     assert out.proposed_solution == "Re-activate the offline license."
     assert out.preliminary_assessment is None
-    assert out.confidence == 0.85
-    assert out.confidence_breakdown == {"verifier": 0.85}
+    assert out.confidence == pytest.approx(0.85)
+    assert out.confidence_breakdown == pytest.approx(
+        {"retrieval_quality": 1.0, "metadata_completeness": 1.0, "rubric": 1.0, "verifier": 0.85}
+    )
     assert out.cited_sources == ["Common_Errors.md"]
 
 
@@ -307,7 +331,7 @@ def test_state_to_output_clarify_path() -> None:
         classification=_classification(gaps=["os"]),
         followup_questions=["Which OS?"],
     )
-    finalized = supervisor.finalize_clarify(state)
+    finalized = supervisor.finalize_clarify(state, _DEFAULT_WEIGHTS)
     out = state_to_output(finalized)
     assert out.resolution_kind == "clarify"
     assert out.proposed_solution is None
@@ -347,8 +371,9 @@ def test_state_to_output_dedupes_and_sorts_cited_sources() -> None:
             ],
         ),
         verifier_verdict=_verdict(0.9),
+        confidence_components={"verifier": 0.9},
     )
-    finalized = supervisor.finalize_solve(state)
+    finalized = supervisor.finalize_solve(state, _DEFAULT_WEIGHTS)
     out = state_to_output(finalized)
     assert out.cited_sources == ["Common_Errors.md", "Licensing_Offline_Activation.md"]
 
@@ -365,8 +390,9 @@ def test_state_to_output_downgrade_path_omits_cited_sources() -> None:
         retrievals=[_retrieval("Common_Errors.md#0", "Common_Errors.md")],
         draft_solution=_draft(),
         verifier_verdict=_verdict(0.30, grounded=False),
+        confidence_components={"verifier": 0.30},
     )
-    finalized = supervisor.finalize_clarify_downgrade(state)
+    finalized = supervisor.finalize_clarify_downgrade(state, _DEFAULT_WEIGHTS)
     out = state_to_output(finalized)
     assert out.resolution_kind == "clarify"
     assert out.cited_sources == []

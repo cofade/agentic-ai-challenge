@@ -54,6 +54,13 @@ def render_text(output: Output) -> str:
     for step in output.reasoning_trace:
         w(_format_step(step))
 
+    # --- cited sources (evidence_refs are chunk IDs — JSON-only; cited_sources are file-level) ---
+    if output.cited_sources:
+        w("\n")
+        w("Cited Sources:\n")
+        for src in output.cited_sources:
+            w(f"- {src}\n")
+
     # --- follow-up questions ---
     if output.followup_questions:
         w("\n")
@@ -75,10 +82,7 @@ def write_text(output: Output, path: Path) -> None:
 
 
 def _format_step(step: ReasoningStep) -> str:
-    lines = [f"- [{step.actor}] {step.action}: {step.rationale}\n"]
-    for ref in step.evidence_refs:
-        lines.append(f"  - {ref}\n")
-    return "".join(lines)
+    return f"- [{step.actor}] {step.action}: {step.rationale}\n"
 
 
 __all__ = ["render_text", "write_text"]

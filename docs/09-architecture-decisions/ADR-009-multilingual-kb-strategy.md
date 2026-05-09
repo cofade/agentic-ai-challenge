@@ -52,9 +52,11 @@ Specifically:
 
 2. **Language detection at chunk level.** `lingua-language-detector`
    (ADR-003) detects the language of each sentence during chunking and stores
-   it in `KBChunk.language`. This tag is carried through to `Output.cited_sources`
-   (via `RetrievalResult`) and is visible in the reasoning trace, giving
-   operators observability into which language a retrieved chunk is in.
+   it in `KBChunk.language`. This tag remains on the `KBChunk` for future
+   observability; it is not currently surfaced in `Output` (`cited_sources`
+   and `reasoning_trace` carry file paths and chunk IDs respectively, not
+   language metadata). A future extension could surface language in
+   `cited_sources` or the text renderer if operator demand arises.
 
 3. **BM25 with joint EN/DE stopwords.** The `tokenize()` function in
    `retriever.py` removes entries from both `STOPWORDS_EN` and `STOPWORDS_DE`.

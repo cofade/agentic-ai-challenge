@@ -176,11 +176,12 @@ def test_render_reasoning_trace_actor_shown() -> None:
     assert "[retrieve]" in render_text(out)
 
 
-def test_render_evidence_refs_indented() -> None:
+def test_render_cited_sources_listed() -> None:
     out = _solve_output()
     rendered = render_text(out)
-    assert "  - kb/original/Common_Errors.md" in rendered
-    assert "  - kb/original/Licensing_Offline_Activation.md" in rendered
+    assert "Cited Sources:" in rendered
+    assert "- kb/original/Common_Errors.md" in rendered
+    assert "- kb/original/Licensing_Offline_Activation.md" in rendered
 
 
 def test_render_downgrade_no_questions() -> None:

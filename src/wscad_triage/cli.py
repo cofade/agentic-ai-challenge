@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
         output = pipeline.run(ticket, llm, retriever)
         write_json(output, out_dir / f"{ticket.ticket_id}.json")
         write_text(output, out_dir / f"{ticket.ticket_id}.txt")
-        print(f"[wscad-triage] {ticket.ticket_id} -> {args.out}/")
+        print(f"[wscad-triage] {ticket.ticket_id} -> {out_dir}")
 
     return 0
 

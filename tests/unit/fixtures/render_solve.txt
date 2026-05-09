@@ -12,9 +12,10 @@ Confidence:
 Reasoning Trace:
 - [triage] classify: Errors category; High priority; no missing fields.
 - [retrieve] query_kb: Retrieved 2 chunks matching error 504 and license activation.
-  - kb/original/Common_Errors.md
-  - kb/original/Licensing_Offline_Activation.md
 - [reason] draft_solution: Error 504 maps to an expired or missing offline license.
-  - kb/original/Licensing_Offline_Activation.md
 - [verify] ground_claims: All claims grounded; score=0.85.
 - [supervisor] finalize_solve: Grounding score 0.85 >= threshold; resolved as solve.
+
+Cited Sources:
+- kb/original/Common_Errors.md
+- kb/original/Licensing_Offline_Activation.md

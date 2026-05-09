@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -164,8 +163,6 @@ def test_provider_flag_forwarded(tmp_path: Path) -> None:
         patch("wscad_triage.cli.BM25", return_value=MagicMock()),
         patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
         patch("wscad_triage.cli.HybridRetriever", return_value=MagicMock()),
-        # Isolate env so existing WSCAD_TRIAGE_PROVIDER doesn't interfere
-        patch.dict(os.environ, {}, clear=False),
     ):
         exit_code = main([str(tickets_file), "--provider", "anthropic", "--kb-dir", str(kb_dir)])
 
@@ -187,6 +184,7 @@ def test_out_defaults_to_out_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     kb_dir = _fake_kb_dir(tmp_path)
     fixed_output = _minimal_solve_output("T-042")
 
+    monkeypatch.chdir(tmp_path)
     with (
         patch("wscad_triage.cli.pipeline.run", return_value=fixed_output),
         patch("wscad_triage.cli.make_client", return_value=MagicMock()),
@@ -195,12 +193,10 @@ def test_out_defaults_to_out_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
         patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
         patch("wscad_triage.cli.HybridRetriever", return_value=MagicMock()),
     ):
-        # Specify --kb-dir explicitly so default "out/" is the only default we're testing
         exit_code = main([str(tickets_file), "--kb-dir", str(kb_dir)])
 
     assert exit_code == 0
-    # Default out/ is relative to cwd at test run time; the current cwd is the project root
-    assert (Path("out") / "T-042.json").exists() or (tmp_path / "out" / "T-042.json").exists()
+    assert (tmp_path / "out" / "T-042.json").exists()
 
 
 # ---------------------------------------------------------------------------

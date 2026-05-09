@@ -48,15 +48,33 @@ Phase 3 introduces a provider-agnostic LLM client (see [ADR-004](docs/09-archite
 
 ```bash
 cp .env.example .env
-# then edit .env to set ANTHROPIC_API_KEY (default provider)
+# .env defaults to WSCAD_TRIAGE_PROVIDER=ollama; no API key needed.
 ```
 
-Provider selection is `WSCAD_TRIAGE_PROVIDER=anthropic|azure`:
+Provider selection is `WSCAD_TRIAGE_PROVIDER=ollama|anthropic|azure`:
 
-- **`anthropic`** (default) — production code path. Uses the Anthropic SDK with prompt caching for KB context.
+- **`ollama`** (default) — self-hosted, runs against a local [Ollama](https://ollama.com) server. The pipeline is runnable offline with no API account. See "Quickstart with Ollama" below.
+- **`anthropic`** — cloud, paid. Uses the Anthropic SDK with prompt caching for KB context. Requires `ANTHROPIC_API_KEY` in `.env`.
 - **`azure`** — Azure OpenAI is named as the production target in the brief but ships as a documented stub today; constructing the backend raises `ConfigurationError`. Full implementation is deferred ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md), "Future work").
 
-Tests use a deterministic `MockLLMClient` and never hit the network. The single `live_api`-marked smoke test at `tests/integration/test_anthropic_live.py` is **deselected by default** via `addopts = ["-m", "not live_api"]` in `pyproject.toml`; opt in with `ANTHROPIC_API_KEY=... uv run pytest -m live_api`. If `-m live_api` is selected without an API key, the test calls `pytest.skip()` and exits cleanly.
+Tests use a deterministic `MockLLMClient` and never hit the network. Two `live_api`-marked smoke tests live at `tests/integration/test_anthropic_live.py` and `tests/integration/test_ollama_live.py`; both are **deselected by default** via `addopts = ["-m", "not live_api"]` in `pyproject.toml`. Opt in with `uv run pytest -m live_api`. The Ollama test skips cleanly if the local server is unreachable or the configured model is not pulled; the Anthropic test skips if `ANTHROPIC_API_KEY` is unset.
+
+### Quickstart with Ollama
+
+```bash
+# 1. Install Ollama (https://ollama.com/download)
+# 2. Pull the project's tested model
+ollama pull gpt-oss:20b
+
+# 3. Start the server (new terminal, if not already running)
+ollama serve
+
+# 4. Run the pipeline
+uv sync --all-extras
+uv run wscad-triage tickets/tickets.json --out out/  # CLI lands in Phase 4 (#30)
+```
+
+Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested choice. Smaller open-weight models can emit malformed tool-call JSON; see [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) for the recommended-model list and the Phase 5 fidelity-benchmark plan.
 
 ## Where to read further
 
@@ -64,7 +82,7 @@ Tests use a deterministic `MockLLMClient` and never hit the network. The single 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — the build plan; one entry per GitHub Issue, organised by phase.
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map and the LangGraph diagram of the supervisor + workers topology.
-- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Five are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction), and ADR-006 (hybrid RAG strategy); the rest are pending and land alongside the components they document.
+- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Seven are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction — three backends including Ollama), ADR-005 (supervisor topology), ADR-006 (hybrid RAG strategy), and ADR-008 (groundedness safety gate); the rest are pending and land alongside the components they document.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 

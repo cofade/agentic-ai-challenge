@@ -4,8 +4,9 @@ The challenge brief names Azure OpenAI as the production target. We lock the
 provider-selection surface in Phase 3 (issue #18) without committing to a
 specific Azure SDK version: this class implements the :class:`LLMClient`
 Protocol so the factory selects it cleanly, but its constructor always
-raises :class:`ConfigurationError` with a pointer back to the Anthropic
-default. Full implementation is tracked as future work in ADR-004.
+raises :class:`ConfigurationError` redirecting the operator to one of the
+two working backends (Ollama, Anthropic). Full implementation is tracked
+as future work in ADR-004.
 
 Constructor kwargs mirror the four ``AZURE_OPENAI_*`` settings carried by
 :class:`wscad_triage.settings.Settings`. They are unused today but
@@ -41,7 +42,9 @@ class AzureOpenAIBackend:
     ) -> None:
         raise ConfigurationError(
             "Azure OpenAI backend is not yet implemented. "
-            "Set WSCAD_TRIAGE_PROVIDER=anthropic and provide ANTHROPIC_API_KEY. "
+            "Set WSCAD_TRIAGE_PROVIDER=ollama (default; runs against a local "
+            "Ollama server) or WSCAD_TRIAGE_PROVIDER=anthropic (with "
+            "ANTHROPIC_API_KEY). "
             "See docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md."
         )
 

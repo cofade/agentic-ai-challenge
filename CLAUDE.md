@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 5 — Evaluation harness
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58)
-**In progress:** #32 — hand-labeled eval set (PR open, awaiting manual test)
-**Next up:** Phase 5 — eval runner + metrics (#33), run eval (#34), ADR-010 (#35)
+**Current phase:** Phase 5 — Evaluation harness (closing out)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 hand-labeled eval set (#32, PR #60)
+**In progress:** #33 + #35 — eval runner/metrics + ADR-010 (PR open); #34 — baseline numbers (awaiting user-side eval run)
+**Next up:** Phase 6 — reviewer-facing README (#36), arc42 fill-in (#37), ADR cross-refs (#38)
 
 (Update this section at the start of each session.)
 

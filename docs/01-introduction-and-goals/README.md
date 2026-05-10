@@ -16,7 +16,7 @@ The knowledge base is the **only authoritative source** of facts. Solutions that
 | # | Goal | Concrete expression |
 |---|------|---------------------|
 | 1 | **Reasoning transparency** | Every output includes a step-by-step reasoning trace; every claim in the proposed solution is mapped to the KB chunks that support it. |
-| 2 | **Agentic design quality** | A Supervisor agent visibly *decides* the next action on each turn; the system is not a hardcoded chain. |
+| 2 | **Agentic design quality** | Supervisor routing makes the next-action decision visible on each turn — deterministic in Phase 3 (two pure routing functions on `TicketState` + three finalize sinks), with a per-edge LLM swap-in documented in [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md). The system is not a hardcoded chain. |
 | 3 | **Hallucination resistance** | The verifier agent rejects ungrounded claims; rubric-based confidence drops to clarify-mode below the threshold. |
 | 4 | **Engineering clarity** | Pydantic-typed contracts at every boundary; deterministic core (chunking, retrieval, scoring) is unit-testable; LLM calls are mocked in tests. |
 | 5 | **Trade-off awareness** | Every non-trivial decision is captured in an ADR with context, decision, and consequences. |

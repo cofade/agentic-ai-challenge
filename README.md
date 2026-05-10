@@ -10,7 +10,7 @@ An agentic AI ticket-triage system: processes technical support tickets, retriev
 
 **Out:** structured JSON + human-readable text containing category + priority, a proposed solution **or** 2–4 follow-up questions, a 0–1 confidence score, and a step-by-step reasoning trace citing the KB chunks the system relied on.
 
-**How:** a supervisor + workers graph in LangGraph. A *triage* worker classifies and detects missing critical fields; if any are missing, a *clarify* worker generates targeted questions and the pipeline stops there. Otherwise a *retrieve → reason → verify* chain runs: hybrid RAG (BM25 + multilingual embeddings + Reciprocal Rank Fusion) pulls grounding from a local Markdown KB, the reason worker drafts a solution with per-claim citations, and a *verifier* LLM-as-judge refuses the answer if grounding falls below threshold — downgrading to clarify rather than shipping a confidently-wrong response.
+**How:** a supervisor + workers graph in LangGraph. A *triage* worker classifies and detects missing critical fields; if any are missing, a *clarify* worker generates targeted questions and the pipeline stops there. Otherwise a *retrieve → reason → verify* chain runs: hybrid RAG (BM25 + multilingual embeddings + Reciprocal Rank Fusion) pulls grounding from a local Markdown KB, the reason worker drafts a solution with per-claim citations, and a *verifier* LLM-as-judge scores per-claim groundedness — if the aggregate falls below threshold, the supervisor downgrades to clarify rather than shipping a confidently-wrong response.
 
 ## Status
 
@@ -59,7 +59,7 @@ The CLI takes one positional argument (the tickets JSON) and three optional flag
 LLM calls go through a provider-agnostic interface ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)). Set the provider with `WSCAD_TRIAGE_PROVIDER` in `.env`:
 
 - **`ollama`** (default) — self-hosted, runs against a local [Ollama](https://ollama.com) server. The pipeline is runnable offline with no API account. See "Quickstart with Ollama" below.
-- **`anthropic`** — cloud, paid. Uses the Anthropic SDK with prompt caching for KB context. Requires `ANTHROPIC_API_KEY` in `.env`.
+- **`anthropic`** — cloud, paid. Uses the Anthropic SDK; the backend wires `cache_control` markers for KB context but the agent call sites do not yet exercise them (future work). Requires `ANTHROPIC_API_KEY` in `.env`.
 - **`azure`** — Azure OpenAI is named as the production target in the brief but ships as a documented stub today; constructing the backend raises `ConfigurationError`. Full implementation is deferred ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md), "Future work").
 
 Tests use a deterministic `MockLLMClient` and never hit the network. Two `live_api`-marked smoke tests live at `tests/integration/test_anthropic_live.py` and `tests/integration/test_ollama_live.py`; both are **deselected by default** via `addopts = ["-m", "not live_api"]` in `pyproject.toml`. Opt in with `uv run pytest -m live_api`. The Ollama test skips cleanly if the local server is unreachable or the configured model is not pulled; the Anthropic test skips if `ANTHROPIC_API_KEY` is unset.
@@ -99,7 +99,6 @@ flowchart LR
     Downgrade --> Output
     ClarifyFinal --> Output
     KB[(Local KB — hybrid RAG)] -.-> Retrieve
-    KB -.-> Verify
     LLM([LLM provider: Ollama / Anthropic / Azure]) -.-> Triage
     LLM -.-> Retrieve
     LLM -.-> Reason

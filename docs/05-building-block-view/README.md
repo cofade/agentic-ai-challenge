@@ -19,6 +19,7 @@ graph TD
     KB --> Embed[kb.retriever.Embedding]
     Pipeline --> Output[output.json_writer / text_renderer]
     Triage & Retrieve & Reason & Clarify & Verify -.->|LLM calls| Client[llm.client.LLMClient]
+    Client --> Ollama[llm.ollama_backend]
     Client --> Anthropic[llm.anthropic_backend]
     Client --> Azure[llm.azure_openai_backend]
 ```
@@ -86,8 +87,9 @@ Paste the output above the regeneration command. The graph is committed (not aut
 | `kb.chunker` | Sentence-level chunking with provenance metadata. | `src/wscad_triage/kb/chunker.py` (Phase 1) |
 | `kb.retriever` | `BM25` (sparse), `Embedding` (multilingual MiniLM with on-disk cache), and `HybridRetriever` (RRF, Phase 1 / issue #12). All three implement `retrieve(query, k) -> list[RetrievalResult]`. | `src/wscad_triage/kb/retriever.py` (Phase 1) |
 | `llm.client` | Provider-agnostic LLM interface; deterministic mock for tests. | `src/wscad_triage/llm/client.py` (Phase 3) |
-| `llm.anthropic_backend` | Anthropic SDK adapter with prompt caching for KB context. | `src/wscad_triage/llm/anthropic_backend.py` (Phase 3) |
-| `llm.azure_openai_backend` | Azure OpenAI adapter (production target). | `src/wscad_triage/llm/azure_openai_backend.py` (Phase 3) |
+| `llm.ollama_backend` | Ollama HTTP adapter; tested with `gpt-oss:20b`. The default LLM backend for local dev — see [ADR-004](../09-architecture-decisions/ADR-004-llm-provider-abstraction.md). | `src/wscad_triage/llm/ollama_backend.py` (Phase 3) |
+| `llm.anthropic_backend` | Anthropic SDK adapter (prompt-caching plumbing wired but not yet exercised by the agents). | `src/wscad_triage/llm/anthropic_backend.py` (Phase 3) |
+| `llm.azure_openai_backend` | Azure OpenAI adapter (production target — stub today; constructing raises `ConfigurationError`). | `src/wscad_triage/llm/azure_openai_backend.py` (Phase 3) |
 | `confidence` | Rubric formula + verifier integration; `compute_confidence(state)`. | `src/wscad_triage/confidence.py` (Phase 4) |
 | `output.json_writer` | Serialises the canonical `Output` model. | `src/wscad_triage/output/json_writer.py` (Phase 4) |
 | `output.text_renderer` | Renders the JSON to the human-readable Sample_Output.txt-style text. | `src/wscad_triage/output/text_renderer.py` (Phase 4) |

@@ -34,4 +34,4 @@ The knowledge base is the **only authoritative source** of facts. Solutions that
 - The provided knowledge base (3 short Markdown files) is the only authoritative source; the corpus is extended only with content sourced from public WSCAD ELECTRIX AI release notes.
 - No external data sources at runtime; no model fine-tuning; no UI / frontend.
 - Multilingual support: KB content may be German, English, or mixed; embeddings must bridge the languages.
-- LLM calls happen via a provider-agnostic interface so the system can run against Anthropic (default) or Azure OpenAI (production target) without code changes.
+- LLM calls happen via a provider-agnostic interface so the system can run against Ollama (default, local), Anthropic (cloud), or Azure OpenAI (production target) without code changes.

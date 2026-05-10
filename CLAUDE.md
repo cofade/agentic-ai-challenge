@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 5 — Evaluation harness (awaiting user verification)
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 hand-labeled eval set (#32, PR #60)
-**In progress:** #33, #34, #35 — eval harness + baseline metrics + ADR-010; PR #61 open, senior-reviewer clean, awaiting user verification
-**Next up:** Phase 6 — reviewer-facing README (#36), arc42 fill-in (#37), ADR cross-refs (#38)
+**Current phase:** Phase 6 — Documentation polish (in progress)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 — hand-labeled eval set + eval harness + baseline metrics + ADR-010 (#32–#35, PRs #60–#61)
+**In progress:** #36, #37, #38 — reviewer-facing README + arc42 fill-in + ADR cross-refs (Phase 6)
+**Next up:** Phase 7 — full-branch senior-reviewer pass (#39), CI green on main (#40), reviewer-clone smoke test (#41), submission (#42)
 
 (Update this section at the start of each session.)
 

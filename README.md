@@ -15,7 +15,7 @@ An agentic AI ticket-triage system: processes technical support tickets, retriev
 | 2 | KB extension (ELECTRIX AI release notes; synthetic — see [risks doc](docs/11-risks-and-technical-debt/README.md)) | Done |
 | 3 | LLM abstraction + supervisor and worker agents in LangGraph | Done |
 | 4 | Confidence aggregation, output renderers, CLI | Done |
-| 5 | Hand-labeled eval set + metrics harness | Open |
+| 5 | Hand-labeled eval set + metrics harness | Done |
 | 6 | Reviewer-facing README, arc42 fill-in, ADR cross-refs | Open |
 | 7 | Senior-reviewer pass, CI green on main, submission | Open |
 
@@ -76,13 +76,59 @@ uv run wscad-triage tickets/tickets.json --out out/
 
 Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested choice. Smaller open-weight models can emit malformed tool-call JSON; see [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) for the recommended-model list and the Phase 5 fidelity-benchmark plan.
 
+## Baseline metrics
+
+> Numbers recorded on 2026-05-10 against the 16-ticket hand-labeled eval set using `ollama/gpt-oss:20b`.
+> They are illustrative — the model is intentionally conservative — not a performance promise.
+
+| Metric | Value |
+|--------|-------|
+| Tickets in eval set | 16 |
+| Pipeline errors | 2 |
+| Category accuracy (error-free tickets) | 57.1% (8 / 14) |
+| Priority accuracy (error-free tickets) | 42.9% (6 / 14) |
+| Clarification precision | 0.429 |
+| Clarification recall | 1.000 |
+| Clarification F1 | 0.600 |
+| Mean confidence (overall) | 0.134 |
+| Mean confidence (solve only) | n/a — zero solve outputs |
+| Mean confidence (clarify only) | 0.134 |
+
+**Key observations:**
+
+- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. A better-calibrated or cloud model will produce a different solve/clarify split.
+- The 2 pipeline errors (E-08, E-09 — "clarify vague crash") stem from a known gap in the clarify agent's gap-reference validator: it requires each generated question to contain the exact gap identifier string (e.g. `steps_to_reproduce`), but `gpt-oss:20b` paraphrases instead of quoting. This is a pre-existing agent constraint, not introduced by the harness.
+- Category accuracy varies by coverage case: the model handles `licensing vs installation` perfectly (100%) but struggles with `resolvable EN` and `multilingual mixed` (both 33.3%).
+
+**Per-coverage-case breakdown:**
+
+| Coverage case | n | Errors | Cat acc | Prio acc | Mean conf |
+|---------------|---|--------|---------|----------|-----------|
+| clarify missing OS | 2 | 0 | 50.0% | 50.0% | 0.062 |
+| clarify vague crash | 2 | 2 | n/a | n/a | n/a |
+| licensing vs installation | 2 | 0 | 100.0% | 100.0% | 0.125 |
+| multilingual mixed | 3 | 0 | 33.3% | 33.3% | 0.125 |
+| resolvable DE | 2 | 0 | 100.0% | 50.0% | 0.125 |
+| resolvable EN | 3 | 0 | 33.3% | 33.3% | 0.167 |
+| ungrounded claim trap | 2 | 0 | 50.0% | 0.0% | 0.188 |
+
+**Reproduce:**
+
+```bash
+# Requires a running Ollama server with gpt-oss:20b pulled (see Quickstart with Ollama above)
+uv run python -m eval.runner
+# Writes eval/results/latest.json and a timestamped sibling for archival.
+```
+
+The canonical baseline file is [`eval/results/latest.json`](eval/results/latest.json). Evaluation design and metrics definitions are in [ADR-010](docs/09-architecture-decisions/ADR-010-evaluation-harness.md).
+
 ## Where to read further
 
 - [`docs/`](docs/) — architecture documentation in arc42 style. Start with [`docs/README.md`](docs/README.md).
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — the build plan; one entry per GitHub Issue, organised by phase.
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map and the LangGraph diagram of the supervisor + workers topology.
-- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Nine are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction — three backends including Ollama), ADR-005 (supervisor topology), ADR-006 (hybrid RAG strategy), ADR-007 (confidence quantification formula), ADR-008 (groundedness safety gate), and ADR-009 (multilingual KB strategy); the rest are pending and land alongside the components they document.
+- [`docs/09-architecture-decisions/`](docs/09-architecture-decisions/) — ADRs. Ten are Accepted today: ADR-001 (language and runtime), ADR-002 (schema conventions), ADR-003 (KB NLP toolchain), ADR-004 (LLM provider abstraction — three backends including Ollama), ADR-005 (supervisor topology), ADR-006 (hybrid RAG strategy), ADR-007 (confidence quantification formula), ADR-008 (groundedness safety gate), ADR-009 (multilingual KB strategy), and ADR-010 (evaluation harness); the rest are pending and land alongside the components they document.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 

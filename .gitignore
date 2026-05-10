@@ -24,7 +24,9 @@ htmlcov/
 # Project artifacts
 .cache/
 out/
-eval/results/
+# Eval: track only the canonical baseline; timestamped per-run files stay local.
+eval/results/*
+!eval/results/latest.json
 
 # Secrets
 .env

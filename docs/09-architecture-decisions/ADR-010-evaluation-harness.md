@@ -180,6 +180,7 @@ history, gitignored). A plain-ASCII summary table prints to stdout.
   The committed `latest.json` is one snapshot; a future ADR could pin
   seed/temperature for both providers if reproducibility-on-identical-code
   becomes important.
+- **Negative — first committed baseline is degenerate.** The `ollama/gpt-oss:20b` run recorded in `eval/results/latest.json` produced zero `solve` outputs: every error-free ticket was routed to `clarify`, making `mean_confidence_solve` null and grounded-confidence comparisons between providers impossible from this snapshot alone. The numbers are still useful as a regression baseline (any future run that produces any `solve` outputs will be immediately comparable) and the degenerate outcome is itself diagnostic — it reveals that `gpt-oss:20b` cannot clear the 0.4 groundedness gate on this KB, which is a signal worth knowing. A cloud-provider run (Anthropic or Azure) is expected to produce a richer baseline.
 - **Negative — no calibration metric.** Confidence calibration (does
   `confidence == 0.7` actually correspond to ~70% accuracy on those
   rows?) is meaningful only at larger n; ECE / reliability diagrams at

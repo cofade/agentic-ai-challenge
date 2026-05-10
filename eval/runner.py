@@ -27,7 +27,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from importlib import metadata as importlib_metadata
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never, get_args
 
 from pydantic import BaseModel, ConfigDict
 
@@ -83,13 +83,15 @@ class EvalResults(BaseModel):
 
 def _resolve_model_name(settings: Settings) -> str:
     """Provider-specific model identifier for the metadata envelope."""
-    if settings.llm_provider == "ollama":
-        return settings.ollama_model
-    if settings.llm_provider == "anthropic":
-        return settings.anthropic_model
-    if settings.llm_provider == "azure":
-        return settings.azure_openai_deployment or "azure-openai-deployment-unset"
-    return "unknown"
+    match settings.llm_provider:
+        case "ollama":
+            return settings.ollama_model
+        case "anthropic":
+            return settings.anthropic_model
+        case "azure":
+            return settings.azure_openai_deployment or "azure-openai-deployment-unset"
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _git_commit() -> str:
@@ -185,7 +187,7 @@ def run_eval(
     results_dir.mkdir(parents=True, exist_ok=True)
     payload = results.model_dump_json(indent=2) + "\n"
     (results_dir / "latest.json").write_text(payload, encoding="utf-8")
-    timestamp_safe = metadata.timestamp_utc.replace(":", "-")
+    timestamp_safe = datetime.fromisoformat(metadata.timestamp_utc).strftime("%Y%m%dT%H%M%SZ")
     (results_dir / f"{timestamp_safe}.json").write_text(payload, encoding="utf-8")
 
     return results
@@ -230,9 +232,7 @@ def _format_summary(results: EvalResults) -> str:
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
-    import typing
-
-    providers = list(typing.get_args(LLMProvider))
+    providers = list(get_args(LLMProvider))
     parser = argparse.ArgumentParser(
         prog="eval.runner",
         description="Run the WSCAD ticket-triage pipeline over the hand-labeled eval set.",

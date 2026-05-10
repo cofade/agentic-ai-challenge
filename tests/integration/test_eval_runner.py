@@ -1,18 +1,11 @@
-"""Issue #33: integration test for ``eval.runner.run_eval``.
+"""Issue #33: integration tests for ``eval.runner``.
 
-The runner kernel is decoupled from the actual triage pipeline via the
-``pipeline_run`` keyword-only injection point so this test can exercise
-the loop, scoring, and JSON-write steps without scripting all five
-agents. The agent layer's contract is covered by
-``tests/integration/test_pipeline.py``.
+Covers two entry points:
 
-Three scenarios:
-
-1. Happy path with two scripted outputs — verifies ``latest.json`` is
-   written, parses back as ``EvalResults``, and the per-ticket results
-   carry the expected fields.
-2. Per-ticket exception is recorded and does not abort the loop.
-3. ``RunMetadata`` provenance fields are persisted verbatim.
+- ``run_eval`` — pure kernel exercised via ``pipeline_run`` injection.
+- ``main(argv)`` — argparse entry point; exercised via monkeypatching
+  ``make_client``, ``load_kb``, and ``run_eval`` so no real LLM or KB
+  is needed.
 """
 
 from __future__ import annotations
@@ -22,8 +15,8 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-from eval.metrics import PerTicketResult
-from eval.runner import EvalResults, RunMetadata, run_eval
+from eval.metrics import PerTicketResult, compute_metrics, score_error, score_one
+from eval.runner import EvalResults, RunMetadata, main, run_eval
 
 from wscad_triage.kb import HybridRetriever
 from wscad_triage.llm.client import LLMClient
@@ -170,8 +163,7 @@ def test_run_eval_writes_timestamped_sibling(tmp_path: Path) -> None:
     names = {p.name for p in timestamped}
     assert "latest.json" in names
     other = next(n for n in names if n != "latest.json")
-    assert other.endswith(".json")
-    assert "2026-05-10T12-00-00" in other
+    assert other == "20260510T120000Z.json"
 
 
 def test_run_eval_records_per_ticket_exception(tmp_path: Path) -> None:
@@ -228,3 +220,104 @@ def test_run_eval_persists_metadata(tmp_path: Path) -> None:
     assert payload["metadata"]["kb_chunk_count"] == 42
     assert payload["metadata"]["git_commit"] == "deadbeef"
     assert payload["metadata"]["wscad_triage_version"] == "0.0.0+test"
+
+
+# ---------------------------------------------------------------------------
+# main() CLI entry-point tests
+# ---------------------------------------------------------------------------
+
+
+def _minimal_eval_set(tmp_path: Path) -> Path:
+    """Write a single-ticket eval set file that Pydantic can validate."""
+    path = tmp_path / "eval_set.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "ticket_id": "T-1",
+                    "text": "dummy",
+                    "expected_category": "Licensing",
+                    "expected_priority": "High",
+                    "should_clarify": False,
+                    "coverage_case": "resolvable EN",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_main_missing_eval_set_exits_2(tmp_path: Path) -> None:
+    rc = main(
+        [
+            "--eval-set",
+            str(tmp_path / "does_not_exist.json"),
+            "--kb-dir",
+            str(tmp_path),
+            "--results-dir",
+            str(tmp_path / "r"),
+        ]
+    )
+    assert rc == 2
+
+
+def test_main_missing_kb_dir_exits_2(tmp_path: Path) -> None:
+    eval_set = _minimal_eval_set(tmp_path)
+    rc = main(
+        [
+            "--eval-set",
+            str(eval_set),
+            "--kb-dir",
+            str(tmp_path / "no_such_kb"),
+            "--results-dir",
+            str(tmp_path / "r"),
+        ]
+    )
+    assert rc == 2
+
+
+def test_main_exits_1_when_errors(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    eval_set = _minimal_eval_set(tmp_path)
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+
+    et = _eval_ticket("T-1")
+    err_result = score_error(et, RuntimeError("oops"))
+    fake = EvalResults(
+        metadata=_metadata(eval_set),
+        aggregate=compute_metrics([err_result]),
+        per_ticket=[err_result],
+    )
+    monkeypatch.setattr("eval.runner.make_client", lambda _s: cast(object, object()))
+    monkeypatch.setattr("eval.runner.load_kb", lambda _d: [])
+    monkeypatch.setattr("eval.runner.Embedding", lambda _: object())
+    monkeypatch.setattr("eval.runner.run_eval", lambda *_a, **_kw: fake)
+
+    rc = main(
+        ["--eval-set", str(eval_set), "--kb-dir", str(kb_dir), "--results-dir", str(tmp_path / "r")]
+    )
+    assert rc == 1
+
+
+def test_main_exits_0_on_clean_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    eval_set = _minimal_eval_set(tmp_path)
+    kb_dir = tmp_path / "kb"
+    kb_dir.mkdir()
+
+    et = _eval_ticket("T-1", expected_category="Licensing")
+    good_result = score_one(et, _output("T-1", category="Licensing", confidence=0.8))
+    fake = EvalResults(
+        metadata=_metadata(eval_set),
+        aggregate=compute_metrics([good_result]),
+        per_ticket=[good_result],
+    )
+    monkeypatch.setattr("eval.runner.make_client", lambda _s: cast(object, object()))
+    monkeypatch.setattr("eval.runner.load_kb", lambda _d: [])
+    monkeypatch.setattr("eval.runner.Embedding", lambda _: object())
+    monkeypatch.setattr("eval.runner.run_eval", lambda *_a, **_kw: fake)
+
+    rc = main(
+        ["--eval-set", str(eval_set), "--kb-dir", str(kb_dir), "--results-dir", str(tmp_path / "r")]
+    )
+    assert rc == 0

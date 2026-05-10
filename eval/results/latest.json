@@ -4,7 +4,7 @@
     "provider": "ollama",
     "model": "gpt-oss:20b",
     "kb_chunk_count": 659,
-    "eval_set_path": "C:\\Users\\wienh\\VSCode\\agentic-ai-challenge\\tickets\\eval_set.json",
+    "eval_set_path": "tickets/eval_set.json",
     "eval_set_sha256": "44ba29d196128c5923edcc50889cb325fb8e7712121f58ec68f93afdef722677",
     "git_commit": "b66373293b7f2e07952fba52a7e74fa17cdd7570",
     "wscad_triage_version": "0.1.0"

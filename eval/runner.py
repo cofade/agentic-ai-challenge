@@ -128,12 +128,16 @@ def collect_metadata(
     """Gather provenance fields for a run. Pure of side effects beyond
     reading the eval-set file and shelling out to ``git rev-parse``.
     """
+    try:
+        path_str = eval_set_path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        path_str = str(eval_set_path)
     return RunMetadata(
         timestamp_utc=datetime.now(UTC).isoformat(timespec="seconds"),
         provider=settings.llm_provider,
         model=_resolve_model_name(settings),
         kb_chunk_count=kb_chunk_count,
-        eval_set_path=str(eval_set_path),
+        eval_set_path=path_str,
         eval_set_sha256=_hash_file(eval_set_path),
         git_commit=_git_commit(),
         wscad_triage_version=_wscad_version(),

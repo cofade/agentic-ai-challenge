@@ -96,7 +96,7 @@ Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested c
 
 **Key observations:**
 
-- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). The pipeline's groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-safety-gate.md)) blocked solve proposals because the model's grounded confidence stayed well below the 0.6 threshold. A better-calibrated or cloud model will produce a different solve/clarify split.
+- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. A better-calibrated or cloud model will produce a different solve/clarify split.
 - The 2 pipeline errors (E-08, E-09 — "clarify vague crash") stem from a known gap in the clarify agent's gap-reference validator: it requires each generated question to contain the exact gap identifier string (e.g. `steps_to_reproduce`), but `gpt-oss:20b` paraphrases instead of quoting. This is a pre-existing agent constraint, not introduced by the harness.
 - Category accuracy varies by coverage case: the model handles `licensing vs installation` perfectly (100%) but struggles with `resolvable EN` and `multilingual mixed` (both 33.3%).
 

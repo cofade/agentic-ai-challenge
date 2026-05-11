@@ -1,46 +1,48 @@
 {
   "metadata": {
-    "timestamp_utc": "2026-05-10T21:05:11+00:00",
+    "timestamp_utc": "2026-05-11T20:52:59+00:00",
     "provider": "ollama",
     "model": "gpt-oss:20b",
     "kb_chunk_count": 659,
     "eval_set_path": "tickets/eval_set.json",
-    "eval_set_sha256": "44ba29d196128c5923edcc50889cb325fb8e7712121f58ec68f93afdef722677",
-    "git_commit": "b66373293b7f2e07952fba52a7e74fa17cdd7570",
+    "eval_set_sha256": "aecfe64cc3e1470806153731d770338a8a4c07b08b40d5168919f3d24667ac6f",
+    "git_commit": "2409ad98afb02ddd2c58fa9ccf349e5a034e3448",
     "wscad_triage_version": "0.1.0"
   },
   "aggregate": {
-    "n_tickets": 16,
+    "n_tickets": 21,
     "n_errors": 2,
-    "category_accuracy": 0.5714285714285714,
-    "priority_accuracy": 0.42857142857142855,
-    "clarification_precision": 0.42857142857142855,
+    "category_accuracy": 0.631578947368421,
+    "priority_accuracy": 0.3684210526315789,
+    "clarification_precision": 0.3157894736842105,
     "clarification_recall": 1.0,
-    "clarification_f1": 0.6,
-    "mean_confidence_overall": 0.13392857142857142,
+    "clarification_f1": 0.4799999999999999,
+    "mean_confidence_overall": 0.15789473684210525,
     "mean_confidence_solve": null,
-    "mean_confidence_clarify": 0.13392857142857142,
+    "mean_confidence_clarify": 0.15789473684210525,
     "category_confusion": {
       "Licensing": {
         "Errors": 2,
-        "Licensing": 6
-      },
-      "Installation": {
-        "Errors": 3,
+        "Licensing": 5,
         "Installation": 1
       },
-      "Other": {
-        "Errors": 1
+      "Installation": {
+        "Installation": 2,
+        "Errors": 2
       },
       "Errors": {
-        "Errors": 1
+        "Errors": 2
+      },
+      "Other": {
+        "Errors": 2,
+        "Other": 3
       }
     },
     "per_coverage_case": {
       "resolvable EN": {
         "n": 3,
         "n_errors": 0,
-        "category_accuracy": 0.3333333333333333,
+        "category_accuracy": 0.6666666666666666,
         "priority_accuracy": 0.3333333333333333,
         "mean_confidence": 0.16666666666666666
       },
@@ -49,7 +51,7 @@
         "n_errors": 0,
         "category_accuracy": 1.0,
         "priority_accuracy": 0.5,
-        "mean_confidence": 0.125
+        "mean_confidence": 0.1875
       },
       "clarify missing OS": {
         "n": 2,
@@ -60,31 +62,38 @@
       },
       "clarify vague crash": {
         "n": 2,
-        "n_errors": 2,
-        "category_accuracy": null,
-        "priority_accuracy": null,
-        "mean_confidence": null
+        "n_errors": 1,
+        "category_accuracy": 1.0,
+        "priority_accuracy": 0.0,
+        "mean_confidence": 0.125
       },
       "licensing vs installation": {
         "n": 2,
         "n_errors": 0,
-        "category_accuracy": 1.0,
+        "category_accuracy": 0.5,
         "priority_accuracy": 1.0,
         "mean_confidence": 0.125
       },
       "ungrounded claim trap": {
         "n": 2,
-        "n_errors": 0,
-        "category_accuracy": 0.5,
+        "n_errors": 1,
+        "category_accuracy": 0.0,
         "priority_accuracy": 0.0,
-        "mean_confidence": 0.1875
+        "mean_confidence": 0.0
       },
       "multilingual mixed": {
         "n": 3,
         "n_errors": 0,
         "category_accuracy": 0.3333333333333333,
         "priority_accuracy": 0.3333333333333333,
-        "mean_confidence": 0.125
+        "mean_confidence": 0.16666666666666666
+      },
+      "release notes grounded": {
+        "n": 5,
+        "n_errors": 0,
+        "category_accuracy": 0.8,
+        "priority_accuracy": 0.2,
+        "mean_confidence": 0.225
       }
     }
   },
@@ -113,12 +122,12 @@
       "expected_priority": "Medium",
       "should_clarify": false,
       "notes": "Fresh install on a new machine; Installation_Requirements.md documents the .NET Runtime 6.0 prerequisite as the resolution.",
-      "actual_category": "Errors",
+      "actual_category": "Installation",
       "actual_priority": "High",
       "actual_resolution_kind": "clarify",
       "confidence": 0.25,
       "cited_sources": [],
-      "category_correct": false,
+      "category_correct": true,
       "priority_correct": false,
       "clarification_outcome": "FP",
       "error": null
@@ -167,7 +176,7 @@
       "actual_category": "Installation",
       "actual_priority": "High",
       "actual_resolution_kind": "clarify",
-      "confidence": 0.125,
+      "confidence": 0.25,
       "cited_sources": [],
       "category_correct": true,
       "priority_correct": false,
@@ -215,15 +224,15 @@
       "expected_priority": "Medium",
       "should_clarify": true,
       "notes": "No reproducible steps or error message; full metadata present but text is too vague for any specific KB chunk to apply.",
-      "actual_category": null,
-      "actual_priority": null,
-      "actual_resolution_kind": null,
-      "confidence": null,
+      "actual_category": "Errors",
+      "actual_priority": "High",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.125,
       "cited_sources": [],
-      "category_correct": false,
+      "category_correct": true,
       "priority_correct": false,
-      "clarification_outcome": null,
-      "error": "ValueError: clarify agent: question does not reference any listed gap (['steps_to_reproduce', 'log_excerpt']): 'Could you describe the exact sequence of actions you take that leads to the crash? For example, which menu options you select, any data you input, or files you open before the program closes?'"
+      "clarification_outcome": "TP",
+      "error": null
     },
     {
       "ticket_id": "E-09",
@@ -266,12 +275,12 @@
       "expected_priority": "High",
       "should_clarify": true,
       "notes": "Installation context but root cause is licensing; missing version makes it ambiguous which release note applies; requires clarification.",
-      "actual_category": "Licensing",
+      "actual_category": "Installation",
       "actual_priority": "High",
       "actual_resolution_kind": "clarify",
       "confidence": 0.125,
       "cited_sources": [],
-      "category_correct": true,
+      "category_correct": false,
       "priority_correct": true,
       "clarification_outcome": "TP",
       "error": null
@@ -286,7 +295,7 @@
       "actual_category": "Errors",
       "actual_priority": "High",
       "actual_resolution_kind": "clarify",
-      "confidence": 0.125,
+      "confidence": 0.0,
       "cited_sources": [],
       "category_correct": false,
       "priority_correct": false,
@@ -300,15 +309,15 @@
       "expected_priority": "Medium",
       "should_clarify": true,
       "notes": "References hotfix 'KB-2025-0041' and 'component registry entry' concepts that do not appear in any KB chunk; verifier cannot ground a solution.",
-      "actual_category": "Errors",
-      "actual_priority": "Critical",
-      "actual_resolution_kind": "clarify",
-      "confidence": 0.25,
+      "actual_category": null,
+      "actual_priority": null,
+      "actual_resolution_kind": null,
+      "confidence": null,
       "cited_sources": [],
-      "category_correct": true,
+      "category_correct": false,
       "priority_correct": false,
-      "clarification_outcome": "TP",
-      "error": null
+      "clarification_outcome": null,
+      "error": "ValueError: clarify agent: question does not reference any listed gap (['steps_to_reproduce', 'log_excerpt']): 'Could you describe the exact sequence of actions you performed from launching ELECTRIX AI to encountering the critical error, including any specific menus or settings accessed?'"
     },
     {
       "ticket_id": "E-14",
@@ -318,12 +327,12 @@
       "should_clarify": false,
       "notes": "German ticket body with English error code 'Error 504'; Common_Errors.md and Licensing_Offline_Activation.md both ground the answer.",
       "actual_category": "Errors",
-      "actual_priority": "High",
+      "actual_priority": "Critical",
       "actual_resolution_kind": "clarify",
       "confidence": 0.25,
       "cited_sources": [],
       "category_correct": false,
-      "priority_correct": true,
+      "priority_correct": false,
       "clarification_outcome": "FP",
       "error": null
     },
@@ -335,9 +344,9 @@
       "should_clarify": false,
       "notes": "German fresh-install ticket with 'fehlende Laufzeitkomponente'; grounded in Installation_Requirements.md (.NET Runtime 6.0 requirement). Changed to Installation/Medium from Errors/High to reflect the actual root cause.",
       "actual_category": "Errors",
-      "actual_priority": "Critical",
+      "actual_priority": "High",
       "actual_resolution_kind": "clarify",
-      "confidence": 0.125,
+      "confidence": 0.25,
       "cited_sources": [],
       "category_correct": false,
       "priority_correct": false,
@@ -352,13 +361,98 @@
       "should_clarify": true,
       "notes": "Mixed German/English ticket; no OS field; Licensing_Offline_Activation.md grounds the domain but OS is needed to confirm compatibility — clarification required.",
       "actual_category": "Licensing",
-      "actual_priority": "Critical",
+      "actual_priority": "High",
       "actual_resolution_kind": "clarify",
       "confidence": 0.0,
       "cited_sources": [],
       "category_correct": true,
-      "priority_correct": false,
+      "priority_correct": true,
       "clarification_outcome": "TP",
+      "error": null
+    },
+    {
+      "ticket_id": "E-17",
+      "coverage_case": "release notes grounded",
+      "expected_category": "Other",
+      "expected_priority": "Low",
+      "should_clarify": false,
+      "notes": "v7.4.0.17 release notes: 'In AI Copilot können über den neuen Menüpunkt Eigenes Wissen Informationen aus Dokumenten (pdf, txt, docx) abgefragt werden, die zuvor über den Hauptmenüpunkt AI | Eigenes Wissen hochgeladen wurden.' — grounded answer: yes, upload via AI | Eigenes Wissen. Cross-lingual (EN query, DE chunk).",
+      "actual_category": "Other",
+      "actual_priority": "Medium",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.125,
+      "cited_sources": [],
+      "category_correct": true,
+      "priority_correct": false,
+      "clarification_outcome": "FP",
+      "error": null
+    },
+    {
+      "ticket_id": "E-18",
+      "coverage_case": "release notes grounded",
+      "expected_category": "Other",
+      "expected_priority": "Low",
+      "should_clarify": false,
+      "notes": "v7.3.1.4 release notes: 'AI Copilot wurde als Zusatzfenster angelegt und kann im Arbeitsbereich beliebig angeordnet werden.' — direct DE→DE retrieval.",
+      "actual_category": "Other",
+      "actual_priority": "Medium",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.25,
+      "cited_sources": [],
+      "category_correct": true,
+      "priority_correct": false,
+      "clarification_outcome": "FP",
+      "error": null
+    },
+    {
+      "ticket_id": "E-19",
+      "coverage_case": "release notes grounded",
+      "expected_category": "Other",
+      "expected_priority": "Medium",
+      "should_clarify": false,
+      "notes": "v7.4.0.17 release notes: 'Im Dialog Mehrsprachig bearbeiten sowie im Lexikon und im Nachbearbeitungspanel kann mit der neuen Symbolschaltfläche AI-Übersetzung der Text in alle gelisteten Sprachen übersetzt werden. Bestehende Texte werden nicht überschrieben.' — second cross-lingual case (EN query, DE chunk).",
+      "actual_category": "Other",
+      "actual_priority": "Low",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.25,
+      "cited_sources": [],
+      "category_correct": true,
+      "priority_correct": false,
+      "clarification_outcome": "FP",
+      "error": null
+    },
+    {
+      "ticket_id": "E-20",
+      "coverage_case": "release notes grounded",
+      "expected_category": "Other",
+      "expected_priority": "Medium",
+      "should_clarify": false,
+      "notes": "v7.3.0.16 release notes: 'Um unabhängig von Microsoft Access zu werden, wurden die WSCAD Datenbanken von Access auf SQLite (Version 3.40.0) umgestellt' — version-anchored DE→DE retrieval.",
+      "actual_category": "Errors",
+      "actual_priority": "High",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.25,
+      "cited_sources": [],
+      "category_correct": false,
+      "priority_correct": false,
+      "clarification_outcome": "FP",
+      "error": null
+    },
+    {
+      "ticket_id": "E-21",
+      "coverage_case": "release notes grounded",
+      "expected_category": "Errors",
+      "expected_priority": "Medium",
+      "should_clarify": false,
+      "notes": "Reported on v7.3.2.10; fix is in v7.3.2.14 release notes: 'Wirklinien zwischen Spulen und Kontakten werden auch in der PDF korrekt angezeigt, evtl. muss dazu der Zoomfaktor der PDF geändert werden.' Stress-tests BM25 version-shred: 'v7.3.2.10' token-splits, retrieval should still surface v7.3.2.14 chunk via lexical match on PDF/Wirklinien/Spulen/Kontakte.",
+      "actual_category": "Errors",
+      "actual_priority": "Medium",
+      "actual_resolution_kind": "clarify",
+      "confidence": 0.25,
+      "cited_sources": [],
+      "category_correct": true,
+      "priority_correct": true,
+      "clarification_outcome": "FP",
       "error": null
     }
   ]

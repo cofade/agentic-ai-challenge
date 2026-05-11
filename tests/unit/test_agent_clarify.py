@@ -307,3 +307,88 @@ def test_no_tool_call_raises() -> None:
     )
     with pytest.raises(ValueError, match="no tool calls"):
         clarify.run(state, mock)
+
+
+# ---------------------------------------------------------------------------
+# Pair-dict format coercion (defends against over-structured tool calls
+# from instruction-tuned models like gpt-oss:120b)
+# ---------------------------------------------------------------------------
+
+
+def test_pair_dict_format_is_normalized_to_strings() -> None:
+    """gpt-oss:120b emits ``[{gap, question}, ...]`` instead of ``[str, ...]``.
+
+    The field validator on _ClarifyOutput.questions must accept that shape and
+    flatten it to plain question strings before the standard Pydantic
+    string-list validation runs.
+    """
+    state = _state_with_gaps("version", "os")
+    mock = MockLLMClient(
+        script={
+            "clarify agent": _questions_response(
+                {
+                    "questions": [
+                        {
+                            "gap": "version",
+                            "question": "Which version of WSCAD Suite are you running?",
+                        },
+                        {
+                            "gap": "os",
+                            "question": "Which operating system and OS version is in play?",
+                        },
+                    ]
+                }
+            )
+        }
+    )
+
+    new_state = clarify.run(state, mock)
+    assert len(new_state.followup_questions) == 2
+    assert all(isinstance(q, str) for q in new_state.followup_questions)
+    assert "version" in new_state.followup_questions[0].lower()
+
+
+def test_pair_dict_format_supports_q_text_content_keys() -> None:
+    """Alternative key names ('q', 'text', 'content') also work."""
+    state = _state_with_gaps("version", "os")
+    mock = MockLLMClient(
+        script={
+            "clarify agent": _questions_response(
+                {
+                    "questions": [
+                        {"gap": "version", "q": "Which version of WSCAD Suite are you running?"},
+                        {
+                            "gap": "os",
+                            "text": "Which operating system version is the machine running?",
+                        },
+                    ]
+                }
+            )
+        }
+    )
+    new_state = clarify.run(state, mock)
+    assert len(new_state.followup_questions) == 2
+
+
+def test_unrecognized_dict_shape_still_raises() -> None:
+    """If the dict has no `question`/`q`/`text`/`content` field, validation fails.
+
+    We do not silently drop or fabricate strings; the schema's intent is preserved.
+    """
+    from pydantic import ValidationError
+
+    state = _state_with_gaps("version", "os")
+    mock = MockLLMClient(
+        script={
+            "clarify agent": _questions_response(
+                {
+                    "questions": [
+                        {"gap": "version", "details": "no recognized question key"},
+                        {"gap": "os", "details": "neither here"},
+                    ]
+                }
+            )
+        }
+    )
+    with pytest.raises(ValidationError):
+        clarify.run(state, mock)

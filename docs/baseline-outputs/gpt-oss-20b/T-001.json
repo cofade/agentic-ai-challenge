@@ -1,0 +1,42 @@
+{
+  "ticket_id": "T-001",
+  "category": "Errors",
+  "priority": "High",
+  "resolution_kind": "clarify",
+  "proposed_solution": null,
+  "preliminary_assessment": "The application fails to start after an update and reports a 504 error, indicating a significant runtime issue that likely requires logs and reproduction steps to diagnose. Awaiting clarification on: steps_to_reproduce, log_excerpt.",
+  "followup_questions": [
+    "Could you describe the exact steps you followed to reproduce the failure after the update?",
+    "Could you provide the relevant portion of the application logs that includes the 504 error?"
+  ],
+  "confidence": 0.25,
+  "confidence_breakdown": {
+    "retrieval_quality": 0.0,
+    "metadata_completeness": 0.5,
+    "rubric": 0.25
+  },
+  "reasoning_trace": [
+    {
+      "actor": "triage",
+      "action": "classified",
+      "evidence_refs": [],
+      "rationale": "The application fails to start after an update and reports a 504 error, indicating a significant runtime issue that likely requires logs and reproduction steps to diagnose."
+    },
+    {
+      "actor": "clarify",
+      "action": "generated_questions",
+      "evidence_refs": [
+        "steps_to_reproduce",
+        "log_excerpt"
+      ],
+      "rationale": "Generated 2 question(s) targeting gaps ['steps_to_reproduce', 'log_excerpt']."
+    },
+    {
+      "actor": "supervisor",
+      "action": "finalize_clarify",
+      "evidence_refs": [],
+      "rationale": "Triage flagged 2 critical gap(s); confidence=0.25; emitting follow-up questions instead of a solution."
+    }
+  ],
+  "cited_sources": []
+}

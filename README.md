@@ -12,6 +12,29 @@ An agentic AI ticket-triage system: processes technical support tickets, retriev
 
 **How:** a supervisor + workers graph in LangGraph. A *triage* worker classifies and detects missing critical fields; if any are missing, a *clarify* worker generates targeted questions and the pipeline stops there. Otherwise a *retrieve → reason → verify* chain runs: hybrid RAG (BM25 + multilingual embeddings + Reciprocal Rank Fusion) pulls grounding from a local Markdown KB, the reason worker drafts a solution with per-claim citations, and a *verifier* LLM-as-judge scores per-claim groundedness — if the aggregate falls below threshold, the supervisor downgrades to clarify rather than shipping a confidently-wrong response.
 
+```mermaid
+flowchart LR
+    Ticket([Support ticket]) --> Triage
+    Triage -->|missing critical fields| Clarify
+    Triage -->|complete metadata| Retrieve
+    Retrieve --> Reason
+    Reason --> Verify
+    Verify -->|grounded| Solve[Finalize: solution]
+    Verify -->|ungrounded| Downgrade[Finalize: clarify — downgrade]
+    Clarify --> ClarifyFinal[Finalize: clarify — missing fields]
+    Solve --> Output([Structured output JSON + text])
+    Downgrade --> Output
+    ClarifyFinal --> Output
+    KB[(Local KB — hybrid RAG)] -.-> Retrieve
+    LLM([LLM provider: Ollama / Anthropic / Azure]) -.-> Triage
+    LLM -.-> Retrieve
+    LLM -.-> Reason
+    LLM -.-> Clarify
+    LLM -.-> Verify
+```
+
+The deeper view — the committed-to-source LangGraph state diagram, the building-block view, runtime sequences, and architectural decisions — lives under [**Deeper architecture documentation**](#deeper-architecture-documentation) below.
+
 ## Status
 
 | Phase | What it delivers | State |
@@ -83,32 +106,9 @@ uv run wscad-triage tickets/tickets.json --out out/
 
 Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested choice. Smaller open-weight models can emit malformed tool-call JSON; see [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) for the recommended-model list and the Phase 5 fidelity-benchmark plan.
 
-## Architecture
+## Deeper architecture documentation
 
-The high-level flow: a ticket enters, the supervisor decides between a clarify short-circuit or a retrieve/reason/verify chain, and one of three finalize sinks emits the structured output.
-
-```mermaid
-flowchart LR
-    Ticket([Support ticket]) --> Triage
-    Triage -->|missing critical fields| Clarify
-    Triage -->|complete metadata| Retrieve
-    Retrieve --> Reason
-    Reason --> Verify
-    Verify -->|grounded| Solve[Finalize: solution]
-    Verify -->|ungrounded| Downgrade[Finalize: clarify — downgrade]
-    Clarify --> ClarifyFinal[Finalize: clarify — missing fields]
-    Solve --> Output([Structured output JSON + text])
-    Downgrade --> Output
-    ClarifyFinal --> Output
-    KB[(Local KB — hybrid RAG)] -.-> Retrieve
-    LLM([LLM provider: Ollama / Anthropic / Azure]) -.-> Triage
-    LLM -.-> Retrieve
-    LLM -.-> Reason
-    LLM -.-> Clarify
-    LLM -.-> Verify
-```
-
-The full LangGraph state diagram, the package layout, the runtime sequences, and the decisions behind each choice live in the arc42 documentation:
+The high-level diagram up in [30-second mental model](#30-second-mental-model) is the entry point; the full LangGraph state diagram (with the conditional edges driven by the supervisor's routing functions), the package layout, the runtime sequences, and the decisions behind each choice live in the arc42 documentation:
 
 - [`docs/01-introduction-and-goals/`](docs/01-introduction-and-goals/) — system purpose, prioritised quality goals, stakeholders, constraints.
 - [`docs/05-building-block-view/`](docs/05-building-block-view/) — component map, package layout, **and the full LangGraph state diagram** as committed to source.
@@ -148,40 +148,41 @@ Neither is implemented today.
 
 ## Baseline metrics
 
-> Numbers recorded on 2026-05-10 against the 16-ticket hand-labeled eval set using `ollama/gpt-oss:20b`.
-> The artefact's `git_commit` field references the Phase 5 feature branch HEAD; only doc updates and an `eval/runner.py` refactor have landed on `main` since, so the metrics remain valid against the current pipeline. Re-run with `uv run python -m eval.runner` to overwrite.
-> They are illustrative — the model is intentionally conservative — not a performance promise.
+> Numbers recorded on 2026-05-11 against the **21-ticket hand-labelled eval set** using `ollama/gpt-oss:20b`, run on `main` HEAD `2409ad9` plus the issue-#64 release-notes-grounded tickets and the clarify-agent pair-dict-coercion fix.
+> Re-run with `uv run python -m eval.runner` to overwrite. They are illustrative — `gpt-oss:20b` is intentionally conservative — not a performance promise.
 
 | Metric | Value |
 |--------|-------|
-| Tickets in eval set | 16 |
+| Tickets in eval set | 21 |
 | Pipeline errors | 2 |
-| Category accuracy (error-free tickets) | 57.1% (8 / 14) |
-| Priority accuracy (error-free tickets) | 42.9% (6 / 14) |
-| Clarification precision | 0.429 |
+| Category accuracy (error-free tickets) | 63.2% (12 / 19) |
+| Priority accuracy (error-free tickets) | 36.8% (7 / 19) |
+| Clarification precision | 0.316 |
 | Clarification recall | 1.000 |
-| Clarification F1 | 0.600 |
-| Mean confidence (overall) | 0.134 |
+| Clarification F1 | 0.480 |
+| Mean confidence (overall) | 0.158 |
 | Mean confidence (solve only) | n/a — zero solve outputs |
-| Mean confidence (clarify only) | 0.134 |
+| Mean confidence (clarify only) | 0.158 |
 
 **Key observations:**
 
-- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. The provided sample tickets in `tickets/tickets.json` exhibit the same pattern (T-001 routes to clarify under this default). A better-calibrated or cloud model will produce a different solve/clarify split.
-- The 2 pipeline errors (E-08, E-09 — "clarify vague crash") stem from a known gap in the clarify agent's gap-reference validator: it requires each generated question to contain the exact gap identifier string (e.g. `steps_to_reproduce`), but `gpt-oss:20b` paraphrases instead of quoting. This is a pre-existing agent constraint, not introduced by the harness.
-- Category accuracy varies by coverage case: the model handles `licensing vs installation` perfectly (100%) but struggles with `resolvable EN` and `multilingual mixed` (both 33.3%). The category-confusion matrix in `eval/results/latest.json` shows the failure mode is asymmetric — Licensing tickets mostly map to `Licensing`, but Installation and Other tickets default to `Errors`. Production deployment would want a category-specific prompt or a labelled fine-tune.
+- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. The provided sample tickets in `tickets/tickets.json` exhibit the same pattern (T-001 routes to clarify under this default); pre-rendered outputs are at [`docs/baseline-outputs/`](docs/baseline-outputs/). A better-calibrated or cloud model will produce a different solve/clarify split.
+- The 2 pipeline errors (E-09 "vague freeze, DE" + E-13 "ungrounded hotfix claim") stem from a known gap in the clarify agent's gap-reference validator: it requires each generated question to contain the exact gap identifier string (e.g. `steps_to_reproduce`), but `gpt-oss:20b` paraphrases — especially in German, where "Fehlermeldung" never matches the English snake_case `error_message` gap name. This is a pre-existing constraint, not introduced by the harness.
+- Category accuracy varies sharply by coverage case: the model handles `clarify vague crash` and `resolvable DE` perfectly (both 100%) but completely misses `ungrounded claim trap` (0%). The category-confusion matrix in [`eval/results/latest.json`](eval/results/latest.json) shows the failure mode is asymmetric: Licensing tickets mostly map to `Licensing`, Installation tickets split roughly 50/50 between `Installation` and a default to `Errors`, and Other-category tickets mostly map correctly but with a minority defaulting to `Errors`. Production deployment would want a category-specific prompt or a labelled fine-tune.
+- The new `release notes grounded` coverage case (n=5, added by issue #64) lands at **80.0% category accuracy** and **0.225 mean confidence — the highest mean confidence of any coverage case** (two other cases — `clarify vague crash` and `resolvable DE` — beat it on category accuracy at 100%). The retriever surfaces release-notes chunks correctly when version metadata is present; most misses are on `priority`, where `gpt-oss:20b` defaults to High for feature questions that should be Low / Medium, plus one category miss on E-20 (model emits `Errors` instead of `Other` for the Access→SQLite migration question).
 
 **Per-coverage-case breakdown:**
 
 | Coverage case | n | Errors | Cat acc | Prio acc | Mean conf |
 |---------------|---|--------|---------|----------|-----------|
 | clarify missing OS | 2 | 0 | 50.0% | 50.0% | 0.062 |
-| clarify vague crash | 2 | 2 | n/a | n/a | n/a |
-| licensing vs installation | 2 | 0 | 100.0% | 100.0% | 0.125 |
-| multilingual mixed | 3 | 0 | 33.3% | 33.3% | 0.125 |
-| resolvable DE | 2 | 0 | 100.0% | 50.0% | 0.125 |
-| resolvable EN | 3 | 0 | 33.3% | 33.3% | 0.167 |
-| ungrounded claim trap | 2 | 0 | 50.0% | 0.0% | 0.188 |
+| clarify vague crash | 2 | 1 | 100.0% | 0.0% | 0.125 |
+| licensing vs installation | 2 | 0 | 50.0% | 100.0% | 0.125 |
+| multilingual mixed | 3 | 0 | 33.3% | 33.3% | 0.167 |
+| release notes grounded | 5 | 0 | 80.0% | 20.0% | 0.225 |
+| resolvable DE | 2 | 0 | 100.0% | 50.0% | 0.188 |
+| resolvable EN | 3 | 0 | 66.7% | 33.3% | 0.167 |
+| ungrounded claim trap | 2 | 1 | 0.0% | 0.0% | 0.000 |
 
 **Reproduce:**
 
@@ -191,7 +192,7 @@ uv run python -m eval.runner
 # Writes eval/results/latest.json and a timestamped sibling for archival.
 ```
 
-The canonical baseline file is [`eval/results/latest.json`](eval/results/latest.json). Evaluation design and metrics definitions are in [ADR-010](docs/09-architecture-decisions/ADR-010-evaluation-harness.md).
+The canonical baseline file is [`eval/results/latest.json`](eval/results/latest.json); pre-rendered outputs for the brief's two sample tickets live under [`docs/baseline-outputs/`](docs/baseline-outputs/). Evaluation design and metrics definitions are in [ADR-010](docs/09-architecture-decisions/ADR-010-evaluation-harness.md).
 
 ## Where to read further
 
@@ -200,7 +201,7 @@ The canonical baseline file is [`eval/results/latest.json`](eval/results/latest.
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code instructions for anyone working on the repo with an AI agent.
 - [`docs/WSCAD AI Challenge 2026.pdf`](docs/WSCAD%20AI%20Challenge%202026.pdf) — the original challenge brief.
 
-For architecture, ADRs, glossary, and risks see the **Architecture** section above.
+For architecture, ADRs, glossary, and risks see the [**Deeper architecture documentation**](#deeper-architecture-documentation) section above.
 
 ## Layout
 

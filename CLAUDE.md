@@ -127,10 +127,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 6 — Documentation polish (in progress)
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 — hand-labeled eval set + eval harness + baseline metrics + ADR-010 (#32–#35, PRs #60–#61)
-**In progress:** #36, #37, #38 — reviewer-facing README + arc42 fill-in + ADR cross-refs (Phase 6)
-**Next up:** Phase 7 — full-branch senior-reviewer pass (#39), CI green on main (#40), reviewer-clone smoke test (#41), submission (#42)
+**Current phase:** Phase 7 — Final review & submission (in progress)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 — hand-labeled eval set + eval harness + baseline metrics + ADR-010 (#32–#35, PRs #60–#61); Phase 6 — reviewer-facing README + arc42 fill-in + ADR cross-refs (#36–#38, PR #62)
+**In progress:** #39 — senior-reviewer pass on full main + address P1s + archive report (Phase 7)
+**Next up:** #40 (CI green verify), #41 (reviewer-clone smoke test, Ollama), #42 (visibility + submission link)
 
 (Update this section at the start of each session.)
 
@@ -138,7 +138,7 @@ All five must pass. Fix failures before proceeding.
 
 - **Pydantic at every boundary.** All ticket I/O, KB chunks, agent inputs/outputs, and the final `Output` are typed Pydantic models. The pipeline never passes raw `dict` between agents.
 - **Knowledge base is the only authoritative source.** Agents may not introduce facts that are not present in retrieved KB chunks. The verifier agent enforces this; the rubric penalises it.
-- **Supervisor decides; workers execute.** Each worker is itself an LLM agent emitting structured tool calls (`emit_classification`, `emit_draft`, `emit_questions`, `emit_verdict`); the supervisor stitches them together via a LangGraph state graph. Phase 3 ships [ADR-005](docs/09-architecture-decisions/ADR-005-supervisor-topology.md) with deterministic routing functions on `TicketState`; LLM-mediated decisions are a per-edge swap-in if Phase 5 eval shows the static thresholds underperform. New workers are added by registering a node + edge — not by editing routing logic.
+- **Supervisor routes deterministically; workers are the LLMs.** Each worker is itself an LLM agent emitting structured tool calls (`emit_classification`, `emit_draft`, `emit_questions`, `emit_verdict`); LangGraph wires them together. The supervisor — two pure routing functions on `TicketState` plus three finalize sinks — is *not* an LLM in Phase 3 ([ADR-005](docs/09-architecture-decisions/ADR-005-supervisor-topology.md)). LLM-mediated routing is a per-edge swap-in if eval shows the static thresholds underperform. New workers are added by registering a node + edge — not by editing routing logic.
 - **Configuration over code.** A typed `Settings` object is the single source of runtime config. Provider selection and credentials come from environment variables / `.env` (Phase 3, see [ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)); confidence-rubric weights, thresholds, and retrieval `k` move into `config.yaml` with Phase 4 issue #27. Nothing is magically hardcoded.
 - **Deterministic core; LLM at the edges.** Retrieval, chunking, scoring math, output rendering are deterministic and unit-tested. LLM calls are mocked in tests and gated behind a real-key environment for live integration. The LLM provider is configurable per [ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md): `ollama` (default, self-hosted, runnable offline against a local server), `anthropic` (cloud), `azure` (production target, stub today).
 

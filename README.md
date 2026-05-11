@@ -59,7 +59,7 @@ The CLI takes one positional argument (the tickets JSON) and three optional flag
 LLM calls go through a provider-agnostic interface ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)). Set the provider with `WSCAD_TRIAGE_PROVIDER` in `.env`:
 
 - **`ollama`** (default) — self-hosted, runs against a local [Ollama](https://ollama.com) server. The pipeline is runnable offline with no API account. See "Quickstart with Ollama" below.
-- **`anthropic`** — cloud, paid. Uses the Anthropic SDK; the backend wires `cache_control` markers for KB context but the agent call sites do not yet exercise them (future work). Requires `ANTHROPIC_API_KEY` in `.env`.
+- **`anthropic`** — cloud, paid. Uses the Anthropic SDK. Requires a separate Anthropic API key in `.env` (Claude subscriptions do not bundle one). Prompt-cache plumbing exists at the backend boundary but is not yet exercised by the agent call sites; see [risks doc](docs/11-risks-and-technical-debt/README.md).
 - **`azure`** — Azure OpenAI is named as the production target in the brief but ships as a documented stub today; constructing the backend raises `ConfigurationError`. Full implementation is deferred ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md), "Future work").
 
 Tests use a deterministic `MockLLMClient` and never hit the network. Two `live_api`-marked smoke tests live at `tests/integration/test_anthropic_live.py` and `tests/integration/test_ollama_live.py`; both are **deselected by default** via `addopts = ["-m", "not live_api"]` in `pyproject.toml`. Opt in with `uv run pytest -m live_api`. The Ollama test skips cleanly if the local server is unreachable or the configured model is not pulled; the Anthropic test skips if `ANTHROPIC_API_KEY` is unset.
@@ -147,6 +147,7 @@ Neither is implemented today.
 ## Baseline metrics
 
 > Numbers recorded on 2026-05-10 against the 16-ticket hand-labeled eval set using `ollama/gpt-oss:20b`.
+> The artefact's `git_commit` field references the Phase 5 feature branch HEAD; only doc updates and an `eval/runner.py` refactor have landed on `main` since, so the metrics remain valid against the current pipeline. Re-run with `uv run python -m eval.runner` to overwrite.
 > They are illustrative — the model is intentionally conservative — not a performance promise.
 
 | Metric | Value |
@@ -164,9 +165,9 @@ Neither is implemented today.
 
 **Key observations:**
 
-- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. A better-calibrated or cloud model will produce a different solve/clarify split.
+- `gpt-oss:20b` routed every error-free ticket to `clarify` (zero `solve` outcomes). Each ticket either triggered the missing-fields branch in triage or was downgraded by the groundedness gate ([ADR-008](docs/09-architecture-decisions/ADR-008-groundedness-gate.md)), which forces `clarify` when `grounding_score < 0.4`. The provided sample tickets in `tickets/tickets.json` exhibit the same pattern (T-001 routes to clarify under this default). A better-calibrated or cloud model will produce a different solve/clarify split.
 - The 2 pipeline errors (E-08, E-09 — "clarify vague crash") stem from a known gap in the clarify agent's gap-reference validator: it requires each generated question to contain the exact gap identifier string (e.g. `steps_to_reproduce`), but `gpt-oss:20b` paraphrases instead of quoting. This is a pre-existing agent constraint, not introduced by the harness.
-- Category accuracy varies by coverage case: the model handles `licensing vs installation` perfectly (100%) but struggles with `resolvable EN` and `multilingual mixed` (both 33.3%).
+- Category accuracy varies by coverage case: the model handles `licensing vs installation` perfectly (100%) but struggles with `resolvable EN` and `multilingual mixed` (both 33.3%). The category-confusion matrix in `eval/results/latest.json` shows the failure mode is asymmetric — Licensing tickets mostly map to `Licensing`, but Installation and Other tickets default to `Errors`. Production deployment would want a category-specific prompt or a labelled fine-tune.
 
 **Per-coverage-case breakdown:**
 

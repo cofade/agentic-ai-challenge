@@ -38,6 +38,7 @@ eval/results/*
 Thumbs.db
 .idea/
 .vscode/
+.VSCodeCounter/
 *.swp
 
 # Notebooks

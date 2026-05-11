@@ -16,6 +16,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 from wscad_triage import pipeline
@@ -57,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     try:
         llm = make_client(settings)
+        if settings.llm_provider == "ollama":
+            _preflight_ollama(settings.ollama_base_url, settings.ollama_model)
     except ConfigurationError as exc:
         print(f"wscad-triage: configuration error: {exc}", file=sys.stderr)
         return 1
@@ -77,6 +81,37 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[wscad-triage] {ticket.ticket_id} -> {out_dir}")
 
     return 0
+
+
+def _preflight_ollama(base_url: str, model: str) -> None:
+    """Verify the Ollama server is up and the configured model is pulled.
+
+    Raises ``ConfigurationError`` with an actionable message if either check
+    fails. The verifier-style two-stage gate (server reachable, then model
+    present) names the right cause in the error message so the reviewer can
+    fix it without reading the traceback.
+    """
+    try:
+        with urllib.request.urlopen(f"{base_url.rstrip('/')}/api/version", timeout=3.0):
+            pass
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        raise ConfigurationError(
+            f"Ollama server not reachable at {base_url}: {exc}. "
+            "Start it with `ollama serve` or set WSCAD_TRIAGE_OLLAMA_BASE_URL."
+        ) from exc
+
+    try:
+        with urllib.request.urlopen(f"{base_url.rstrip('/')}/api/tags", timeout=5.0) as resp:
+            tags = json.load(resp)
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        raise ConfigurationError(f"Ollama /api/tags unavailable at {base_url}: {exc}.") from exc
+
+    pulled = {t.get("name", "") for t in tags.get("models", [])}
+    if model not in pulled:
+        raise ConfigurationError(
+            f"Ollama model {model!r} not pulled (available: {sorted(pulled)}). "
+            f"Run `ollama pull {model}` to fix."
+        )
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:

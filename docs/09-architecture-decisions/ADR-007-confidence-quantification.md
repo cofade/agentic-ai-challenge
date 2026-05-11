@@ -43,12 +43,19 @@ retrieval_quality(state)     = 1.0 if state.retrievals else 0.0
 metadata_completeness(state) = max(0.0, 1.0 − |missing_critical_fields| × penalty_per_field)
 rubric_score                 = clamp(w_ret × retrieval_quality + w_meta × metadata_completeness)
 
-# solve path (verifier ran):
+# solve sink + downgrade-clarify sink (verifier ran):
 final_confidence = min(rubric_score, verifier_score)
 
-# clarify path (verifier short-circuited):
+# missing-fields clarify sink (verifier never ran):
 final_confidence = rubric_score
 ```
+
+The branch is decided by whether `state.confidence_components["verifier"]` is
+set, not by which sink the supervisor will route to. The
+`finalize_clarify_downgrade` sink *did* run the verifier (its < 0.4 score is
+what triggered the downgrade), so its final confidence is `min(rubric,
+verifier)` like the solve sink. Only the missing-fields `finalize_clarify`
+sink skips the verifier entirely.
 
 Implementation lives in `src/wscad_triage/confidence.py`:
 `compute_rubric(state, weights) -> dict[str, float]` and

@@ -54,6 +54,8 @@ uv run wscad-triage tickets/tickets.json --out out/
 
 The CLI takes one positional argument (the tickets JSON) and three optional flags: `--out DIR` (default `out/`), `--kb-dir DIR` (default `kb/`), and `--provider {ollama,anthropic,azure}` (overrides `WSCAD_TRIAGE_PROVIDER`).
 
+The `wscad-triage` CLI accepts the plain `Ticket` shape used by [`tickets/tickets.json`](tickets/tickets.json) (the brief's sample input). The labeled eval set at [`tickets/eval_set.json`](tickets/eval_set.json) uses the richer `EvalTicket` shape (extra fields: `expected_category`, `should_clarify`, `coverage_case`, ...) and is read by the eval harness — run it with `uv run python -m eval.runner` (see [Baseline metrics](#baseline-metrics)). Passing the eval set to the CLI raises a Pydantic `extra_forbidden` error by design — the strict-schema boundary is what keeps the two entrypoints honest.
+
 ## Configuration
 
 LLM calls go through a provider-agnostic interface ([ADR-004](docs/09-architecture-decisions/ADR-004-llm-provider-abstraction.md)). Set the provider with `WSCAD_TRIAGE_PROVIDER` in `.env`:

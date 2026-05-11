@@ -28,6 +28,7 @@ CoverageCase = Literal[
     "licensing vs installation",
     "ungrounded claim trap",
     "multilingual mixed",
+    "release notes grounded",
 ]
 
 
@@ -198,8 +199,10 @@ class EvalTicket(Ticket):
     """A labelled ticket used by the Phase 5 evaluation harness.
 
     Extends :class:`Ticket` with ground-truth fields required by the runner
-    (issue #33). ``coverage_case`` identifies which of the seven planned test
-    cases this ticket exercises so the runner can compute per-case metrics.
+    (issue #33). ``coverage_case`` identifies which of the eight test cases
+    this ticket exercises (seven from the Phase 5 roadmap plus
+    ``"release notes grounded"`` added by issue #64) so the runner can
+    compute per-case metrics.
     """
 
     model_config = ConfigDict(extra="forbid")

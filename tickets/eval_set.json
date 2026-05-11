@@ -215,5 +215,75 @@
     "should_clarify": true,
     "coverage_case": "multilingual mixed",
     "notes": "Mixed German/English ticket; no OS field; Licensing_Offline_Activation.md grounds the domain but OS is needed to confirm compatibility — clarification required."
+  },
+  {
+    "ticket_id": "E-17",
+    "text": "We've started using ELECTRIX AI 2026 and our team has a lot of internal PDF documentation. Can AI Copilot query our own uploaded documents as a knowledge source, or is it limited to its built-in knowledge?",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.4.0.17",
+      "os": "Windows 11"
+    },
+    "expected_category": "Other",
+    "expected_priority": "Low",
+    "should_clarify": false,
+    "coverage_case": "release notes grounded",
+    "notes": "v7.4.0.17 release notes: 'In AI Copilot können über den neuen Menüpunkt Eigenes Wissen Informationen aus Dokumenten (pdf, txt, docx) abgefragt werden, die zuvor über den Hauptmenüpunkt AI | Eigenes Wissen hochgeladen wurden.' — grounded answer: yes, upload via AI | Eigenes Wissen. Cross-lingual (EN query, DE chunk)."
+  },
+  {
+    "ticket_id": "E-18",
+    "text": "Der AI Copilot wird bei uns immer als integriertes Panel angezeigt. Lässt er sich auch als eigenes Fenster anordnen, sodass wir ihn frei im Arbeitsbereich oder auf einem zweiten Bildschirm positionieren können?",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.1.4",
+      "os": "Windows 10"
+    },
+    "expected_category": "Other",
+    "expected_priority": "Low",
+    "should_clarify": false,
+    "coverage_case": "release notes grounded",
+    "notes": "v7.3.1.4 release notes: 'AI Copilot wurde als Zusatzfenster angelegt und kann im Arbeitsbereich beliebig angeordnet werden.' — direct DE→DE retrieval."
+  },
+  {
+    "ticket_id": "E-19",
+    "text": "Our schematic projects are localized into five languages and currently we copy-paste translations by hand. Does ELECTRIX AI 2026 support automatic translation of annotation texts into all configured languages without overwriting any existing translations?",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.4.0.17",
+      "os": "Windows 11"
+    },
+    "expected_category": "Other",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "release notes grounded",
+    "notes": "v7.4.0.17 release notes: 'Im Dialog Mehrsprachig bearbeiten sowie im Lexikon und im Nachbearbeitungspanel kann mit der neuen Symbolschaltfläche AI-Übersetzung der Text in alle gelisteten Sprachen übersetzt werden. Bestehende Texte werden nicht überschrieben.' — second cross-lingual case (EN query, DE chunk). Priority is Medium (vs Low for E-17/E-18) because the translation workflow has direct customer-facing impact: schematic annotations are output deliverables shipped to multi-language customers, not internal productivity tooling."
+  },
+  {
+    "ticket_id": "E-20",
+    "text": "Nach dem Update auf ELECTRIX AI 7.3.0.16 kann ich unsere bestehende Microsoft Access Artikeldatenbank nicht mehr direkt verwenden. Was hat sich an der Datenbank-Architektur geändert und wie sollen wir damit umgehen?",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.0.16",
+      "os": "Windows 11"
+    },
+    "expected_category": "Other",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "release notes grounded",
+    "notes": "v7.3.0.16 release notes: 'Um unabhängig von Microsoft Access zu werden, wurden die WSCAD Datenbanken von Access auf SQLite (Version 3.40.0) umgestellt' — version-anchored DE→DE retrieval."
+  },
+  {
+    "ticket_id": "E-21",
+    "text": "Beim PDF-Export von Schaltplänen aus ELECTRIX AI 7.3.2.10 werden die Wirklinien zwischen Spulen und Kontakten in der erzeugten PDF-Datei nicht angezeigt. In der Anwendung selbst sind sie sichtbar. Gibt es dazu eine bekannte Lösung?",
+    "metadata": {
+      "product": "ELECTRIX AI",
+      "version": "7.3.2.10",
+      "os": "Windows 10"
+    },
+    "expected_category": "Errors",
+    "expected_priority": "Medium",
+    "should_clarify": false,
+    "coverage_case": "release notes grounded",
+    "notes": "Reported on v7.3.2.10; fix is in v7.3.2.14 release notes: 'Wirklinien zwischen Spulen und Kontakten werden auch in der PDF korrekt angezeigt, evtl. muss dazu der Zoomfaktor der PDF geändert werden.' Stress-tests BM25 version-shred: 'v7.3.2.10' token-splits, retrieval should still surface v7.3.2.14 chunk via lexical match on PDF/Wirklinien/Spulen/Kontakte."
   }
 ]

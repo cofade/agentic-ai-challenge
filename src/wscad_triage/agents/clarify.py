@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from wscad_triage.agents._state import append_step
 from wscad_triage.llm import LLMClient, Message, ToolSpec
@@ -59,6 +59,42 @@ class _ClarifyOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     questions: list[str] = Field(min_length=_MIN_QUESTIONS, max_length=_MAX_QUESTIONS)
+
+    @field_validator("questions", mode="before")
+    @classmethod
+    def _flatten_pair_format(cls, v: object) -> object:
+        """Coerce gap↔question pair dicts back to plain question strings.
+
+        The tool's ``input_schema`` declares ``questions: array of string``,
+        but instruction-tuned models (observed on ``gpt-oss:120b``) sometimes
+        ignore it and emit ``[{"gap": "...", "question": "..."}, ...]`` to
+        make the gap-to-question mapping explicit. ``gpt-oss:20b`` follows
+        the schema as written. We normalize the pair format defensively so a
+        single tool call doesn't drop the whole ticket on the floor.
+
+        Candidate question-bearing keys are tried in order ``("question",
+        "q", "text", "content")`` — first string-valued match wins. The
+        ``question``/``gap`` shape is the only one observed in practice;
+        the remaining three are anticipatory. Dicts that match none of the
+        four fall through to downstream string-list validation, which
+        raises — we never silently drop or fabricate.
+        """
+        if not isinstance(v, list):
+            return v
+        normalized: list[object] = []
+        for item in v:
+            if isinstance(item, dict):
+                for key in ("question", "q", "text", "content"):
+                    candidate = item.get(key)
+                    if isinstance(candidate, str):
+                        normalized.append(candidate)
+                        break
+                else:
+                    # Unknown dict shape — let downstream string validation raise.
+                    normalized.append(item)
+            else:
+                normalized.append(item)
+        return normalized
 
 
 def run(state: TicketState, llm: LLMClient) -> TicketState:

@@ -1,8 +1,8 @@
 """Issue #32: validate the structure and coverage of the hand-labeled eval set.
 
 Checks that ``tickets/eval_set.json`` is well-formed, meets the minimum size
-requirement, and exercises all seven planned coverage cases defined in the
-Phase 5 roadmap.
+requirement, and exercises all eight planned coverage cases (seven from the
+Phase 5 roadmap plus ``"release notes grounded"`` added by issue #64).
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ REQUIRED_COVERAGE_CASES: frozenset[str] = frozenset(
         "licensing vs installation",
         "ungrounded claim trap",
         "multilingual mixed",
+        "release notes grounded",
     }
 )
 

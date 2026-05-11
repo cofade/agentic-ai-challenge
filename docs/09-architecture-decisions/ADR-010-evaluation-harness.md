@@ -1,7 +1,8 @@
-# ADR-010: Evaluation harness — 16-ticket hand-labeled set + runner with provenance envelope
+# ADR-010: Evaluation harness — hand-labeled set + runner with provenance envelope
 
 - **Date:** 2026-05-10
 - **Status:** Accepted
+- **Update 2026-05-11 (issue #64):** Eval set grew from 16 → 21 tickets and from 7 → 8 coverage cases (added `"release notes grounded"` — tickets E-17..E-21 in [`tickets/eval_set.json`](../../tickets/eval_set.json)). The numbers cited below (16 tickets, 7 cases) describe the Phase 5 snapshot at which this ADR was originally accepted; the architectural decisions (provenance envelope, per-coverage-case aggregation, single-author labelling, deliberate non-goal of population-level accuracy) all carry forward unchanged. The new coverage case fits the same scaffolding — only the `CoverageCase` Literal in [`src/wscad_triage/schemas.py`](../../src/wscad_triage/schemas.py) and the `REQUIRED_COVERAGE_CASES` set in [`tests/unit/test_eval_set.py`](../../tests/unit/test_eval_set.py) needed updating.
 
 ## Context
 

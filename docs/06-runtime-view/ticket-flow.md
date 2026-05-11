@@ -2,7 +2,7 @@
 
 Three canonical execution paths through the LangGraph state machine — the **resolvable** path, the **clarification-required (missing-fields)** path, and the **hallucination-trap (downgrade)** path. Routing decisions are deterministic functions on `TicketState` (see [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md)); the static state diagram lives in [`../05-building-block-view/`](../05-building-block-view/).
 
-Phase 4 (#27, #28) ships `confidence.py`: `final_confidence = min(rubric_score, verifier_score)` on the solve path, and `final_confidence = rubric_score` (no verifier on the clarify short-circuit). The rubric combines two components (retrieval quality and metadata completeness) with weights from `config.yaml`; ADR-007 (#31) documents the design.
+Phase 4 (#27, #28) ships `confidence.py`: `final_confidence = min(rubric_score, verifier_score)` whenever the verifier ran (solve sink *and* downgrade-clarify sink); `final_confidence = rubric_score` on the missing-fields clarify sink where the verifier never ran. The rubric combines two components (retrieval quality and metadata completeness) with weights from `config.yaml`; ADR-007 (#31) documents the design.
 
 ## Resolvable path (high confidence)
 

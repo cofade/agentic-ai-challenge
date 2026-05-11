@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import io
 import json
+import urllib.error
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-from wscad_triage.cli import main
+from wscad_triage.cli import _preflight_ollama, main
 from wscad_triage.kb import Embedding
+from wscad_triage.llm.errors import ConfigurationError
 from wscad_triage.schemas import Output, ReasoningStep
 
 # ---------------------------------------------------------------------------
@@ -93,6 +96,7 @@ def test_produces_json_and_text_files(tmp_path: Path) -> None:
     with (
         patch("wscad_triage.cli.pipeline.run", return_value=fixed_output),
         patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli._preflight_ollama"),
         patch("wscad_triage.cli.load_kb", return_value=[]),
         patch("wscad_triage.cli.BM25", return_value=MagicMock()),
         patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
@@ -128,6 +132,7 @@ def test_print_uses_ascii_arrow(tmp_path: Path, capsys) -> None:
     with (
         patch("wscad_triage.cli.pipeline.run", return_value=_minimal_solve_output("T-001")),
         patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli._preflight_ollama"),
         patch("wscad_triage.cli.load_kb", return_value=[]),
         patch("wscad_triage.cli.BM25", return_value=MagicMock()),
         patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
@@ -188,6 +193,7 @@ def test_out_defaults_to_out_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     with (
         patch("wscad_triage.cli.pipeline.run", return_value=fixed_output),
         patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli._preflight_ollama"),
         patch("wscad_triage.cli.load_kb", return_value=[]),
         patch("wscad_triage.cli.BM25", return_value=MagicMock()),
         patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
@@ -197,6 +203,70 @@ def test_out_defaults_to_out_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
     assert exit_code == 0
     assert (tmp_path / "out" / "T-042.json").exists()
+
+
+# ---------------------------------------------------------------------------
+# Ollama preflight
+# ---------------------------------------------------------------------------
+
+
+def _fake_urlopen_factory(*, version_ok: bool, tags_payload: dict | None):
+    """Return a urlopen replacement that serves /api/version + /api/tags."""
+
+    def fake_urlopen(url: str, timeout: float = 0):  # type: ignore[no-untyped-def]
+        if url.endswith("/api/version"):
+            if version_ok:
+                return io.BytesIO(b'{"version": "0.0.0"}')
+            raise urllib.error.URLError("connection refused")
+        if url.endswith("/api/tags"):
+            return io.BytesIO(json.dumps(tags_payload or {"models": []}).encode())
+        raise AssertionError(f"unexpected url: {url}")
+
+    return fake_urlopen
+
+
+def test_preflight_ollama_succeeds_when_server_up_and_model_pulled() -> None:
+    fake = _fake_urlopen_factory(
+        version_ok=True, tags_payload={"models": [{"name": "gpt-oss:20b"}]}
+    )
+    with patch("wscad_triage.cli.urllib.request.urlopen", side_effect=fake):
+        _preflight_ollama("http://localhost:11434", "gpt-oss:20b")
+
+
+def test_preflight_ollama_raises_when_server_unreachable() -> None:
+    fake = _fake_urlopen_factory(version_ok=False, tags_payload=None)
+    with (
+        patch("wscad_triage.cli.urllib.request.urlopen", side_effect=fake),
+        pytest.raises(ConfigurationError, match="not reachable"),
+    ):
+        _preflight_ollama("http://localhost:11434", "gpt-oss:20b")
+
+
+def test_preflight_ollama_raises_when_model_not_pulled() -> None:
+    fake = _fake_urlopen_factory(version_ok=True, tags_payload={"models": [{"name": "qwen2.5:7b"}]})
+    with (
+        patch("wscad_triage.cli.urllib.request.urlopen", side_effect=fake),
+        pytest.raises(ConfigurationError, match="not pulled"),
+    ):
+        _preflight_ollama("http://localhost:11434", "gpt-oss:20b")
+
+
+def test_preflight_runs_via_main_and_fails_cleanly(tmp_path: Path, capsys) -> None:  # type: ignore[no-untyped-def]
+    """main() returns exit code 1 with a friendly message when preflight fails."""
+    tickets_file = tmp_path / "tickets.json"
+    tickets_file.write_text("[]", encoding="utf-8")
+    kb_dir = _fake_kb_dir(tmp_path)
+
+    fake = _fake_urlopen_factory(version_ok=False, tags_payload=None)
+    with (
+        patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli.urllib.request.urlopen", side_effect=fake),
+    ):
+        exit_code = main([str(tickets_file), "--provider", "ollama", "--kb-dir", str(kb_dir)])
+
+    assert exit_code == 1
+    err = capsys.readouterr().err
+    assert "Ollama server not reachable" in err
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +300,7 @@ def test_kb_dir_loads_real_kb(tmp_path: Path) -> None:
 
     with (
         patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli._preflight_ollama"),
         patch("wscad_triage.cli.Embedding", side_effect=_embedding_with_fake_encoder),
     ):
         exit_code = main([str(tickets_file), "--kb-dir", str(real_kb_dir)])

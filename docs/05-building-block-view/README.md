@@ -75,7 +75,7 @@ Paste the output above the regeneration command. The graph is committed (not aut
 
 | Block | Responsibility | Lives in |
 |-------|----------------|----------|
-| `cli` | Click entry point; loads tickets, runs the pipeline, writes output. | [`src/wscad_triage/cli.py`](../../src/wscad_triage/cli.py) |
+| `cli` | `argparse` entry point; loads tickets, runs the pipeline, writes output. | [`src/wscad_triage/cli.py`](../../src/wscad_triage/cli.py) |
 | `pipeline` | Builds and compiles the LangGraph state graph; runs a single ticket end-to-end. | `src/wscad_triage/pipeline.py` (Phase 3) |
 | `agents.supervisor` | Deterministic routing fns + three finalize sinks; LangGraph wires them via conditional edges. See [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md). | `src/wscad_triage/agents/supervisor.py` (Phase 3) |
 | `agents.triage` | Initial classification + metadata-completeness assessment. | `src/wscad_triage/agents/triage.py` (Phase 3) |

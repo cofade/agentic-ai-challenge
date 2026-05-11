@@ -4,14 +4,10 @@ Two public functions:
 
 * ``compute_rubric`` — weighted combination of retrieval quality and metadata
   completeness; returns a component breakdown dict plus the ``"rubric"`` total.
-* ``compute_confidence`` — applies ``min(rubric, verifier)`` on the solve path
-  and rubric-only on the clarify path; returns ``(final_confidence, breakdown)``.
-
-The confidence bands that emerge from the defaults are documented in
-``config.yaml``:
-  < 0.5   clarify (by construction — see plan for the proof)
-  0.5-0.7 solution with caveats
-  > 0.7   confident solution
+* ``compute_confidence`` — applies ``min(rubric, verifier)`` whenever the
+  verifier ran (solve and downgrade-clarify sinks) and rubric-only on the
+  missing-fields clarify sink where verifier never ran; returns
+  ``(final_confidence, breakdown)``.
 """
 
 from __future__ import annotations
@@ -58,12 +54,16 @@ def compute_confidence(
 ) -> tuple[float, dict[str, float]]:
     """Compute final confidence and its breakdown.
 
-    * **Solve path** (``state.confidence_components`` contains ``"verifier"``):
-      ``final = min(rubric, verifier)``.  The conservative minimum prevents a
-      high rubric score from masking a poorly-grounded solution.
-    * **Clarify path** (no verifier score): ``final = rubric``.  The rubric is
-      naturally below 0.5 on this path because ``retrieval_quality = 0.0``
-      (no retrieval ran) with the default 0.5/0.5 weight split.
+    The branch is decided by whether the verifier ran, not by which finalize
+    sink the supervisor will route to:
+
+    * **Verifier ran** (``state.confidence_components`` contains ``"verifier"``):
+      ``final = min(rubric, verifier)``.  Covers the solve sink *and* the
+      downgrade-clarify sink; the conservative minimum prevents a high rubric
+      from masking a poorly-grounded solution.
+    * **Verifier never ran** (missing-fields clarify sink): ``final = rubric``.
+      The rubric is naturally below 0.5 here because ``retrieval_quality =
+      0.0`` (no retrieval ran) with the default 0.5/0.5 weight split.
 
     Returns ``(final_confidence, breakdown)`` where ``breakdown`` includes all
     component scores plus ``"verifier"`` when present.

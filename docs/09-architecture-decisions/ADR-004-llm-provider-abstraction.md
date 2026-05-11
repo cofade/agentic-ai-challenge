@@ -101,11 +101,12 @@ swapping a model family, never touches an agent.
   — smaller open-weight models (qwen2.5:7b, llama3.1:8b, mistral:7b) can
   emit malformed JSON arguments. The risks doc maintains the
   recommended-model list.
-- **Anthropic** — cloud, paid. `AnthropicBackend` is the cheapest cloud
-  path because of prompt caching: any `Message` with `cache=True` is sent
-  with `cache_control={"type": "ephemeral"}` on its content block. Agents
-  put the (large, stable) KB chunks behind a cache marker and the
-  (small, per-request) ticket text after it.
+- **Anthropic** — cloud, paid. `AnthropicBackend` plumbs prompt caching at
+  the Protocol boundary: any `Message` with `cache=True` is sent with
+  `cache_control={"type": "ephemeral"}` on its content block. Agent call
+  sites do not yet set `cache=True` on KB-chunk messages, so the caching
+  is wired but not exercised today; this is documented as future work in
+  the risks doc.
 - **Azure OpenAI** — production target, stub today. `AzureOpenAIBackend`
   raises `ConfigurationError` on construction redirecting the operator
   to the two working providers (`ollama` default, `anthropic` if a paid

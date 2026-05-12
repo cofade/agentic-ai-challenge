@@ -16,6 +16,7 @@ ADRs capture decisions whose rationale is not obvious from the code. Each ADR ha
 | 008 | [Groundedness safety gate (verifier agent) at the end of the pipeline](ADR-008-groundedness-gate.md) | Accepted | Phase 3 |
 | 009 | [Multilingual KB content strategy — single unified index, language-tagged chunks](ADR-009-multilingual-kb-strategy.md) | Accepted | Phase 4 |
 | 010 | [Evaluation harness — hand-labeled set + runner with provenance envelope](ADR-010-evaluation-harness.md) | Accepted | Phase 5 |
+| 011 | [Interactive chat CLI on top of the one-shot pipeline](ADR-011-interactive-chat-cli.md) | Accepted | Phase 8 |
 
 ## ADR template
 

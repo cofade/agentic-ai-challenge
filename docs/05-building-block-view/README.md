@@ -73,9 +73,12 @@ Paste the output above the regeneration command. The graph is committed (not aut
 
 ## Building blocks
 
+The system exposes two top-level entry surfaces: the **batch CLI** (`wscad-triage batch`) and the **interactive chat REPL** (`wscad-triage chat`). Both are thin wrappers around the same `pipeline.run` call; the REPL adds session state and incremental artefact saves. See [ADR-011](../09-architecture-decisions/ADR-011-interactive-chat-cli.md) for the design rationale.
+
 | Block | Responsibility | Lives in |
 |-------|----------------|----------|
-| `cli` | `argparse` entry point; loads tickets, runs the pipeline, writes output. | [`src/wscad_triage/cli.py`](../../src/wscad_triage/cli.py) |
+| `cli` | `argparse` entry point; dispatches `batch` (process a `tickets.json` file) or `chat` subcommands; shared Ollama preflight and KB setup. | [`src/wscad_triage/cli.py`](../../src/wscad_triage/cli.py) |
+| `chat` | Interactive REPL; parses initial ticket (JSON or free text), appends Q/A turns to `ticket.text`, re-invokes `pipeline.run` each turn, saves `.json` + `.txt` + `.chat.md` artefacts incrementally. | [`src/wscad_triage/chat.py`](../../src/wscad_triage/chat.py) |
 | `pipeline` | Builds and compiles the LangGraph state graph; runs a single ticket end-to-end. | `src/wscad_triage/pipeline.py` (Phase 3) |
 | `agents.supervisor` | Deterministic routing fns + three finalize sinks; LangGraph wires them via conditional edges. See [ADR-005](../09-architecture-decisions/ADR-005-supervisor-topology.md). | `src/wscad_triage/agents/supervisor.py` (Phase 3) |
 | `agents.triage` | Initial classification + metadata-completeness assessment. | `src/wscad_triage/agents/triage.py` (Phase 3) |

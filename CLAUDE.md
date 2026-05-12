@@ -27,7 +27,10 @@ uv run bandit -r src/ --severity-level high
 # Pre-commit (all hooks against all files)
 uv run pre-commit run --all-files
 
-# Run the pipeline end-to-end against the provided sample
+# Interactive chat REPL (primary reviewer surface)
+uv run wscad-triage chat
+
+# Batch-process a tickets file (legacy / automation form)
 uv run wscad-triage tickets/tickets.json --out out/
 
 # Run the evaluation harness over the labeled set
@@ -127,10 +130,10 @@ All five must pass. Fix failures before proceeding.
 
 ## Progress Tracking
 
-**Current phase:** Phase 7 — Final review & submission (in progress)
-**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 — hand-labeled eval set + eval harness + baseline metrics + ADR-010 (#32–#35, PRs #60–#61); Phase 6 — reviewer-facing README + arc42 fill-in + ADR cross-refs (#36–#38, PR #62)
-**In progress:** #39 — senior-reviewer pass on full main + address P1s + archive report (Phase 7)
-**Next up:** #40 (CI green verify), #41 (reviewer-clone smoke test, Ollama), #42 (visibility + submission link)
+**Current phase:** Phase 8 — Interactive chat CLI (in progress)
+**Completed:** Phase 0 — Bootstrap (#1–#7); Phase 1 — Schemas & KB foundation (#8–#13); Phase 2 — KB extension (#14–#16, real release notes via #48); Phase 3 — LLM client + Anthropic/Azure/Ollama backends + five worker agents + supervisor + LangGraph (#17–#26, PRs #50–#52, #54, #56); Phase 4 — confidence formula + output rendering + CLI + ADRs (#27–#31, PRs #57–#58); Phase 5 — hand-labeled eval set + eval harness + baseline metrics + ADR-010 (#32–#35, PRs #60–#61); Phase 6 — reviewer-facing README + arc42 fill-in + ADR cross-refs (#36–#38, PR #62); Phase 7 — senior-reviewer pass + #39/#63 + release-notes-grounded eval tickets #64/#66
+**In progress:** #65 — Interactive chat REPL (`wscad-triage chat`, ADR-011, Phase 8)
+**Next up:** Phase 7 close-out remainder (#40 CI verify, #41 reviewer-clone smoke, #42 visibility + submission link)
 
 (Update this section at the start of each session.)
 

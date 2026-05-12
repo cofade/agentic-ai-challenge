@@ -108,9 +108,16 @@ def test_one_question_raises_at_pydantic_layer() -> None:
         clarify.run(state, mock)
 
 
-def test_five_questions_raises_at_pydantic_layer() -> None:
-    from pydantic import ValidationError
+def test_five_questions_get_truncated_to_max() -> None:
+    """Over-emission is truncated to ``_MAX_QUESTIONS`` rather than raising.
 
+    Some local models (gpt-oss:20b observed) emit 5+ questions even though
+    both the system prompt and the tool schema cap at 4. Dropping the tail
+    is materially better UX than failing the whole ticket because the
+    model gave us *more* information than asked for. The first
+    ``_MAX_QUESTIONS`` survive in order so the most-prioritised gaps stay
+    front-of-list.
+    """
     state = _state_with_gaps("version", "os", "log_excerpt", "steps")
     mock = MockLLMClient(
         script={
@@ -127,8 +134,9 @@ def test_five_questions_raises_at_pydantic_layer() -> None:
             )
         }
     )
-    with pytest.raises(ValidationError):
-        clarify.run(state, mock)
+    new_state = clarify.run(state, mock)
+    assert len(new_state.followup_questions) == 4
+    assert "Anything else helpful here?" not in new_state.followup_questions
 
 
 def test_each_question_references_a_gap() -> None:

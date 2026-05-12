@@ -238,6 +238,85 @@ def test_advertises_emit_draft_toolspec() -> None:
     assert response_format is DraftSolution
 
 
+def test_normalizer_renames_evidence_to_quote() -> None:
+    """``evidence`` is a common LLM-side rename of ``quote``; normalize before validation."""
+    state = _state_with_retrievals()
+    mock = MockLLMClient(
+        script={
+            "reason agent": _draft_response(
+                {
+                    "solution": "Re-activate the offline license.",
+                    "claims": [
+                        {
+                            "claim": "Error 504 is a licensing problem.",
+                            "chunk_id": "Common_Errors.md#0",
+                            # gpt-oss:20b observed emitting `evidence` here
+                            "evidence": "Error 504 indicates a licensing problem.",
+                        },
+                    ],
+                }
+            )
+        }
+    )
+    new_state = reason.run(state, mock)
+    assert new_state.draft_solution is not None
+    assert len(new_state.draft_solution.claims) == 1
+    assert new_state.draft_solution.claims[0].quote == "Error 504 indicates a licensing problem."
+
+
+def test_normalizer_derives_missing_claim_from_quote() -> None:
+    """When ``claim`` is missing but ``quote`` is substantive, fall back to quote-as-claim."""
+    state = _state_with_retrievals()
+    mock = MockLLMClient(
+        script={
+            "reason agent": _draft_response(
+                {
+                    "solution": "Re-activate the offline license.",
+                    "claims": [
+                        {
+                            "chunk_id": "Common_Errors.md#0",
+                            "evidence": "Error 504 indicates a licensing problem.",
+                        }
+                    ],
+                }
+            )
+        }
+    )
+    new_state = reason.run(state, mock)
+    assert new_state.draft_solution is not None
+    assert len(new_state.draft_solution.claims) == 1
+    assert (
+        new_state.draft_solution.claims[0].claim
+        == new_state.draft_solution.claims[0].quote
+        == "Error 504 indicates a licensing problem."
+    )
+
+
+def test_normalizer_drops_unrecoverable_claim_keeps_valid_ones() -> None:
+    """A claim missing every recognised key is dropped; valid claims survive."""
+    state = _state_with_retrievals()
+    mock = MockLLMClient(
+        script={
+            "reason agent": _draft_response(
+                {
+                    "solution": "Re-activate the offline license.",
+                    "claims": [
+                        {
+                            "claim": "Error 504 is a licensing problem.",
+                            "chunk_id": "Common_Errors.md#0",
+                            "quote": "Error 504 indicates a licensing problem.",
+                        },
+                        {"completely_unrecognised_shape": True},
+                    ],
+                }
+            )
+        }
+    )
+    new_state = reason.run(state, mock)
+    assert new_state.draft_solution is not None
+    assert len(new_state.draft_solution.claims) == 1
+
+
 def test_one_fabricated_claim_among_valid_ones_still_raises() -> None:
     state = _state_with_retrievals()
     mock = MockLLMClient(

@@ -13,13 +13,16 @@ docs/baseline-outputs/
     └── T-002.txt
 ```
 
-Captured on 2026-05-11 against `main` HEAD [`2409ad9`](https://github.com/cofade/agentic-ai-challenge/commit/2409ad9) plus the `feature/issue-64-release-notes-tickets` branch (which adds the clarify-agent pair-dict coercion fix discussed in the PR). The model is `ollama/gpt-oss:20b`. Re-running the same command on a fresh clone today should produce semantically equivalent outputs (model temperature is fixed at 0; minor tokenizer-driven variation between Ollama versions is possible).
+Re-captured on 2026-05-12 against the Phase 8 branch (issue #65) after the triage-prompt rewrite and reason-agent normaliser shipped. The model is `ollama/gpt-oss:20b`. Re-running the same command on a fresh clone today produces semantically equivalent outputs (model temperature is fixed at 0; sample-to-sample variation in claim emission is possible — see "What both tickets route to" below).
 
 ## What both tickets route to
 
-Both `T-001` and `T-002` route to the **clarify-missing-fields** sink under `gpt-oss:20b`. The triage agent classifies cleanly (T-001 → Errors/High, T-002 → Licensing/High) but flags multiple critical fields as missing — so the supervisor short-circuits to the clarify worker and the retriever never runs. This matches the brief's `Sample_Output #2` shape (the clarification-required case in `tickets/Sample_Output.txt`), not `Sample_Output #1` (the resolvable case).
+`T-001` and `T-002` both end at a clarify sink under `gpt-oss:20b` on the artefacts committed here, **but the failure modes are now distinct**:
 
-A stronger model (`gpt-oss:120b`, Anthropic Claude Sonnet, a cloud frontier model) would more readily commit to the Licensing classification for T-001, find the *Error 504 → license re-activation* path via the KB chunks in `Common_Errors.md` + `Licensing_Offline_Activation.md`, and route to `finalize_solve`. The architecture supports this path; the test suite at [`tests/integration/test_pipeline.py:79`](../../tests/integration/test_pipeline.py) (`test_resolvable_ticket_returns_solve_output`) exercises it end-to-end with a deterministic `MockLLMClient`. The model is the variable — not the pipeline.
+- **`T-001`** is classified `Licensing / High` (the brief's expected category) and the retriever **does run**, fetching `Common_Errors.md` and the release-notes chunks. The reason agent emits zero grounded claims on this particular run, so the verifier scores grounding 0.0 and the supervisor routes to `finalize_clarify_downgrade` per ADR-008. Earlier ad-hoc runs in the same PR observed `T-001` producing a fully grounded Licensing solve at confidence 1.0 against the same model — the variable is the reason agent's claim emission, which is sample-to-sample stochastic with `gpt-oss:20b`. The architecture works end-to-end (retrieval surfaces the right chunks, verifier is a real layer-2 gate); the local model's tool-use fidelity is the bottleneck.
+- **`T-002`** has only `product` populated; the deterministic gap pass flags `version` + `os` as missing, so the supervisor short-circuits to `finalize_clarify` exactly as the brief's `Sample_Output #2` shape expects.
+
+A stronger model (`gpt-oss:120b`, Anthropic Claude Sonnet, a cloud frontier model) would more reliably emit grounded claims on T-001 and route to `finalize_solve`. The architecture supports this path; the test suite at [`tests/integration/test_pipeline.py:79`](../../tests/integration/test_pipeline.py) (`test_resolvable_ticket_returns_solve_output`) exercises it end-to-end with a deterministic `MockLLMClient`. The model is the variable — not the pipeline.
 
 ## Reproduce
 

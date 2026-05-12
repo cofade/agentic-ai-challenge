@@ -19,3 +19,9 @@ confidence:
   thresholds:
     # ADR-008 gate: verifier grounding_score below this forces clarify-downgrade.
     grounding: 0.4
+
+chat:
+  # After this many turns the chat REPL prints a friendly warning suggesting
+  # the user /quit and start over with a clearer description. It never
+  # force-exits -- the user retains control (ADR-011).
+  soft_turn_warning_at: 8

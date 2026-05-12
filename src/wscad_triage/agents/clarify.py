@@ -35,11 +35,40 @@ _MIN_QUESTION_LEN = 12
 # also count as a reference to that gap. Without this map the substring
 # match for short canonical names like "os" spuriously matched inside
 # "diagnose", "impossible", "across", etc. — boilerplate slipped through.
+# Synonyms are case-insensitive whole-word matches; multi-word synonyms
+# match the phrase verbatim. Single-word synonyms must be at least 3
+# characters to avoid trivial collisions.
 _GAP_SYNONYMS: dict[str, tuple[str, ...]] = {
     "os": ("operating system", "windows", "linux", "macos"),
     "version": ("release", "build"),
     "product": ("product line", "edition"),
     "log_excerpt": ("logs", "log file", "log files", "error log", "event log", "application log"),
+    "steps_to_reproduce": (
+        "actions",
+        "sequence",
+        "sequence of actions",
+        "procedure",
+        "process",
+        "workflow",
+        "reproduction steps",
+        "what you did",
+        "what happened",
+        "what you performed",
+        "actions you performed",
+    ),
+    "error_message": (
+        "error text",
+        "error string",
+        "exception",
+        "exception message",
+        "error displayed",
+    ),
+    "license_key": (
+        "license id",
+        "license number",
+        "activation key",
+        "license code",
+    ),
 }
 
 _SYSTEM_PROMPT = """You are the clarify agent.
@@ -78,6 +107,15 @@ class _ClarifyOutput(BaseModel):
         the remaining three are anticipatory. Dicts that match none of the
         four fall through to downstream string-list validation, which
         raises — we never silently drop or fabricate.
+
+        After flattening, an over-long list is truncated to ``_MAX_QUESTIONS``
+        rather than raising. Some local models (gpt-oss:20b observed)
+        occasionally emit 5+ questions even though the system prompt and
+        tool schema both cap at 4; dropping the tail is materially better
+        UX than failing the whole ticket because the model gave us *more*
+        information than asked for. Under-emission (fewer than
+        ``_MIN_QUESTIONS``) is still surfaced as a validation error
+        because that case usually indicates the model misunderstood.
         """
         if not isinstance(v, list):
             return v
@@ -94,6 +132,8 @@ class _ClarifyOutput(BaseModel):
                     normalized.append(item)
             else:
                 normalized.append(item)
+        if len(normalized) > _MAX_QUESTIONS:
+            normalized = normalized[:_MAX_QUESTIONS]
         return normalized
 
 

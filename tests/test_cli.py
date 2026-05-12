@@ -274,6 +274,37 @@ def test_preflight_runs_via_main_and_fails_cleanly(tmp_path: Path, capsys) -> No
 # ---------------------------------------------------------------------------
 
 
+def test_batch_sanitises_hostile_ticket_id(tmp_path: Path) -> None:
+    """A hostile ``ticket_id`` in tickets.json must not escape ``--out``."""
+    tickets_file = tmp_path / "tickets.json"
+    tickets_file.write_text(
+        json.dumps([{"ticket_id": "../escape", "text": "x", "metadata": {}}]),
+        encoding="utf-8",
+    )
+    kb_dir = _fake_kb_dir(tmp_path)
+    out_dir = tmp_path / "out"
+    fixed_output = _minimal_solve_output("../escape")
+
+    with (
+        patch("wscad_triage.cli.pipeline.run", return_value=fixed_output),
+        patch("wscad_triage.cli.make_client", return_value=MagicMock()),
+        patch("wscad_triage.cli._preflight_ollama"),
+        patch("wscad_triage.cli.load_kb", return_value=[]),
+        patch("wscad_triage.cli.BM25", return_value=MagicMock()),
+        patch("wscad_triage.cli.Embedding", return_value=MagicMock()),
+        patch("wscad_triage.cli.HybridRetriever", return_value=MagicMock()),
+    ):
+        exit_code = main([str(tickets_file), "--out", str(out_dir), "--kb-dir", str(kb_dir)])
+
+    assert exit_code == 0
+    # Artefacts must stay inside out_dir; the parent must not have escape.json
+    assert not (tmp_path / "escape.json").exists()
+    assert not (tmp_path / "escape.txt").exists()
+    # The sanitised stem is inside out_dir
+    written = sorted(p.name for p in out_dir.iterdir())
+    assert written == ["___escape.json", "___escape.txt"]
+
+
 def test_kb_dir_loads_real_kb(tmp_path: Path) -> None:
     """Acceptance test for ROADMAP #30: real kb/ is loaded with --kb-dir.
 

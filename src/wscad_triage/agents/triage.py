@@ -37,12 +37,30 @@ _CRITICAL_FIELDS: tuple[str, ...] = ("product", "version", "os")
 _SYSTEM_PROMPT = """You are the triage agent.
 
 Classify the ticket into one of these categories: Licensing, Installation, \
-Errors, Performance, Other.
+Errors, Performance, Other. Use these hints:
+- "Licensing" if the ticket mentions licenses, activation, error codes \
+known to be licensing-related (e.g. 504), or offline-machine license issues.
+- "Installation" for crashes during or just after install, prerequisite \
+mismatches, or setup failures.
+- "Errors" for runtime crashes / exceptions that are not licensing or install.
+- "Performance" for slowness, hangs, or resource exhaustion.
+- "Other" only when none of the above fit.
+
 Pick a priority: Low, Medium, High, Critical.
-List any critical missing fields the support engineer would need to \
-resolve the ticket. The deterministic pre-pass already added these gaps; \
-you may add domain-specific gaps (e.g. "steps_to_reproduce", "log_excerpt") \
-but do not remove any.
+
+A deterministic pre-pass has already identified the missing critical metadata \
+fields. You MUST NOT remove any of those gaps. You SHOULD NOT add new gaps in \
+the common case. Prefer attempting a solution over asking for more details: \
+if the ticket text mentions an error code, a clear symptom (e.g. \
+"fails to start", "crashes after install", "license stopped working"), or a \
+recognisable problem, leave `missing_critical_fields` equal to the \
+deterministic gaps and let the retrieval and reasoning agents do their job.
+
+Only add domain-specific gaps (like "log_excerpt" or "steps_to_reproduce") \
+when the ticket is GENUINELY vague — for example "it doesn't work" with no \
+error code, no symptom, and no context. Asking for an error log on a ticket \
+that already names an error code is exactly the over-clarification you must \
+avoid.
 
 Return your decision by calling the emit_classification tool exactly once.
 """

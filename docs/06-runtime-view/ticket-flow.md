@@ -60,3 +60,21 @@ The retriever is never called on this path — saving a vector-DB round-trip on 
 The downgrade path **does not** re-route through the clarify worker. The clarify worker's gap-matcher would reject questions about ungrounded claims (those aren't `missing_critical_fields`), and synthesising fake gaps to satisfy the matcher would obscure what actually went wrong. Instead the supervisor's `finalize_clarify_downgrade` sink synthesises a fixed-shape `preliminary_assessment` listing the verifier's ungrounded claims directly.
 
 The verifier is the safety gate that closes the loop on hallucination — even when retrieval looks adequate, an ungrounded solution triggers clarify-mode rather than shipping a confidently-wrong answer (ADR-008).
+
+## Chat REPL path (interactive, multi-turn)
+
+The `wscad-triage chat` subcommand is a thin loop *above* the three paths above — not an alternative graph. Each turn is one full traversal:
+
+```
+1.  User types a description (JSON or free text); chat.py parses it into a Ticket.
+2.  pipeline.run(ticket, llm, retriever) executes one of the three paths above.
+3.  render_text_compact(output) prints category + priority + body + confidence.
+4.  If output.followup_questions is non-empty the user's next input is appended
+    to ticket.text as "[Follow-up turn N]\nQ: …\nA: …" and pipeline.run fires again.
+5.  Artefacts (out/<id>.json, out/<id>.txt, out/<id>.chat.md) are written
+    incrementally after every turn.
+6.  /quit, /exit, or EOF exits cleanly; /details reprints the last turn in full
+    render_text format; /reset starts a new session.
+```
+
+See [ADR-011](../09-architecture-decisions/ADR-011-interactive-chat-cli.md) for the design decision to re-invoke the whole graph per turn (vs. a LangGraph checkpointer) and the `ticket.text` append-transcript model.

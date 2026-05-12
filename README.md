@@ -35,6 +35,76 @@ flowchart LR
 
 The deeper view — the committed-to-source LangGraph state diagram, the building-block view, runtime sequences, and architectural decisions — lives under [**Deeper architecture documentation**](#deeper-architecture-documentation) below.
 
+## Try it interactively — the primary reviewer surface
+
+The fastest way to experience the system is the **chat REPL**: paste a ticket (free text or, for the cleanest demo, a Ticket JSON with complete metadata), see a compact agent response, answer the follow-up questions in-place, and watch the pipeline re-converge until you get a solution. Every turn re-runs the full agentic graph against your configured LLM and saves three artefacts (`<id>.json`, `<id>.txt`, `<id>.chat.md`) to `out/` so the conversation is auditable on disk.
+
+```bash
+# After the one-time setup (see Quickstart below)
+uv run wscad-triage chat
+```
+
+**Solve on the first turn (best case).** Describe the issue in prose — the chat extracts metadata hints (OS / version / product) before triage runs, so a well-described ticket can go straight through retrieval and reasoning to a solution. Anchor the version with a `version` / `ver` / `v` label so the regex matches:
+
+```text
+WSCAD ticket-triage chat. Type /help for commands; /quit to exit.
+Each turn re-runs the full agentic pipeline against your configured LLM.
+
+Describe your issue (paste JSON or free text; submit with a blank line):
+> Application fails to start after update. Error 504 appears.
+... Using WSCAD Suite version 2.3 on Windows 11.
+...
+[Agent] Category: Licensing  |  Priority: High  |  Confidence: 1.00
+Proposed solution:
+Re-activate the offline license via the License Manager. Error 504 indicates
+a licensing validation failure after an update; verify that the license
+matches version 2.3 and that Windows 11 is fully updated.
+> /quit
+[chat] Goodbye.
+```
+
+The full chain (triage → retrieve → reason → verify → solve) depends on the LLM's tool-use fidelity. With `gpt-oss:20b` (offline default) the reason agent occasionally emits a draft with zero grounded claims; when that happens the verifier scores it 0 and the supervisor downgrades to clarify-with-no-solution. A stronger model (cloud Claude / `gpt-oss:120b`) reliably produces the full solve. The architecture is one ``--provider anthropic`` flag away from that path. See [`docs/baseline-outputs/`](docs/baseline-outputs/) for the actual offline artefacts.
+
+Pasting a `Ticket` JSON works too if you prefer the structured shape (handy when pasting from a ticketing system export). The first non-`/` line that starts with `{` or `[` is parsed as JSON; anything else is treated as prose.
+
+**Clarify → answer → solve.** A ticket whose root cause cannot be pinned down without more context. The agent identifies the gap, your reply is folded into the ticket, and the pipeline re-runs:
+
+```text
+> License stopped working on an offline machine. WSCAD Suite.
+...
+[Agent] Category: Licensing  |  Priority: High  |  Confidence: 0.25
+Status: Insufficient information to determine root cause with acceptable confidence.
+Preliminary assessment: The license stopped working on an offline machine.
+Awaiting clarification on: version, os.
+
+Please answer one or more of:
+  1. What version of WSCAD Suite are you running on the offline machine?
+  2. Which operating system (including version) is on the offline machine?
+
+> version 7.4.0.17, Windows 11
+[Agent] Category: Licensing  |  Priority: High  |  Confidence: 0.78
+Proposed solution:
+Re-activate the offline license via the License Manager …
+
+> /details      # reprint the full reasoning trace + cited sources for the last turn
+> /quit
+```
+
+**Free-text path.** Prose works too. The chat extracts OS / version / product hints from your description and from your follow-up answers, so a user typing *"Error 504 on Windows 11, version 7.4.0.17, WSCAD Suite"* gets the same metadata-populated triage as a JSON paste. The extractor is conservative — it only fills fields that are currently empty and only matches well-anchored patterns (`Windows 11`, `version 7.4.0.17`, known product names) — so an ambiguous description still routes to clarify and never invents data. See [ADR-011](docs/09-architecture-decisions/ADR-011-interactive-chat-cli.md) for the design.
+
+**Slash commands**
+
+| Command          | What it does |
+|------------------|--------------|
+| `/help`          | Show the command list. |
+| `/details`       | Reprint the last turn in full (reasoning trace + cited sources). |
+| `/reset`         | Clear the current ticket and start fresh without leaving the REPL. |
+| `/quit`, `/exit` | End the session. EOF (Ctrl-D / Ctrl-Z) works too. |
+
+Anything that does not start with `/` is folded into the current ticket — as the answer to the agent's pending follow-up questions if there are any, otherwise as additional context — and the pipeline re-runs.
+
+**Notes for reviewers.** The chat keeps running after a solve so you can ask follow-up "what if" questions. There is no auto-exit; only you decide when the session ends. A friendly warning fires around turn 8 if a session runs long; it never force-quits. The chat surface complements (does not replace) the batch CLI documented under [Batch processing](#batch-processing) — both call the same `pipeline.run` entry point. See [ADR-011](docs/09-architecture-decisions/ADR-011-interactive-chat-cli.md) for the design rationale and the documented free-text limitation above.
+
 ## Status
 
 | Phase | What it delivers | State |
@@ -45,8 +115,9 @@ The deeper view — the committed-to-source LangGraph state diagram, the buildin
 | 3 | LLM abstraction + supervisor and worker agents in LangGraph | Done |
 | 4 | Confidence aggregation, output renderers, CLI | Done |
 | 5 | Hand-labeled eval set + metrics harness | Done |
-| 6 | Reviewer-facing README, arc42 fill-in, ADR cross-refs | In progress |
-| 7 | Senior-reviewer pass, CI green on main, submission | Open |
+| 6 | Reviewer-facing README, arc42 fill-in, ADR cross-refs | Done |
+| 7 | Senior-reviewer pass + senior-reviewer archive (#39 / #63 closed); CI verify, reviewer-clone smoke, submission link still open | Partly done |
+| 8 | Interactive chat CLI (primary reviewer surface, ADR-011) | In progress |
 
 ## Quickstart
 
@@ -71,13 +142,23 @@ uv run ruff check src/ tests/ eval/
 uv run mypy src/
 uv run bandit -r src/ --severity-level high
 
-# Run the pipeline (requires a running LLM backend — see Configuration)
+# Open the interactive chat (primary surface — see "Try it interactively" above)
+uv run wscad-triage chat
+```
+
+### Batch processing
+
+For an unattended run over a JSON file of tickets — the format that ships in [`tickets/tickets.json`](tickets/tickets.json) — use the `batch` subcommand:
+
+```bash
+uv run wscad-triage batch tickets/tickets.json --out out/
+# Or, equivalently (the legacy positional form is preserved):
 uv run wscad-triage tickets/tickets.json --out out/
 ```
 
-The CLI takes one positional argument (the tickets JSON) and three optional flags: `--out DIR` (default `out/`), `--kb-dir DIR` (default `kb/`), and `--provider {ollama,anthropic,azure}` (overrides `WSCAD_TRIAGE_PROVIDER`).
+Both subcommands share the same flags: `--out DIR` (default `out/`), `--kb-dir DIR` (default `kb/`), and `--provider {ollama,anthropic,azure}` (overrides `WSCAD_TRIAGE_PROVIDER`).
 
-The `wscad-triage` CLI accepts the plain `Ticket` shape used by [`tickets/tickets.json`](tickets/tickets.json) (the brief's sample input). The labeled eval set at [`tickets/eval_set.json`](tickets/eval_set.json) uses the richer `EvalTicket` shape (extra fields: `expected_category`, `should_clarify`, `coverage_case`, ...) and is read by the eval harness — run it with `uv run python -m eval.runner` (see [Baseline metrics](#baseline-metrics)). Passing the eval set to the CLI raises a Pydantic `extra_forbidden` error by design — the strict-schema boundary is what keeps the two entrypoints honest.
+The labeled eval set at [`tickets/eval_set.json`](tickets/eval_set.json) uses the richer `EvalTicket` shape (extra fields: `expected_category`, `should_clarify`, `coverage_case`, ...) and is read by the eval harness — run it with `uv run python -m eval.runner` (see [Baseline metrics](#baseline-metrics)). Passing the eval set to the CLI raises a Pydantic `extra_forbidden` error by design — the strict-schema boundary is what keeps the two entrypoints honest.
 
 ## Configuration
 
@@ -99,9 +180,9 @@ ollama pull gpt-oss:20b
 # 3. Start the server (new terminal, if not already running)
 ollama serve
 
-# 4. Run the pipeline
+# 4. Open the chat (or use `batch tickets/tickets.json` for unattended runs)
 uv sync --all-extras
-uv run wscad-triage tickets/tickets.json --out out/
+uv run wscad-triage chat
 ```
 
 Tool-use fidelity is model-dependent — `gpt-oss:20b` is the project's tested choice. Smaller open-weight models can emit malformed tool-call JSON; see [`docs/11-risks-and-technical-debt/`](docs/11-risks-and-technical-debt/) for the recommended-model list and the Phase 5 fidelity-benchmark plan.
@@ -150,6 +231,8 @@ Neither is implemented today.
 
 > Numbers recorded on 2026-05-11 against the **21-ticket hand-labelled eval set** using `ollama/gpt-oss:20b`, run on `main` HEAD `2409ad9` plus the issue-#64 release-notes-grounded tickets and the clarify-agent pair-dict-coercion fix.
 > Re-run with `uv run python -m eval.runner` to overwrite. They are illustrative — `gpt-oss:20b` is intentionally conservative — not a performance promise.
+>
+> **Stale post-Phase-8 — re-run pending.** The chat-PR (issue #65) ships a tighter triage prompt, a defensive reason-agent normaliser, and a clarify-question over-emission cap. All three change pipeline behaviour on every ticket in the eval set. The numbers below were captured on 2026-05-11 *before* those changes; they are kept for historical comparison. Manual re-validation against [`tickets/tickets.json`](tickets/tickets.json) shows the Phase 8 fixes produce the correct `Licensing` classification on `T-001` (was `Errors`) and the retriever now runs (was short-circuited by spurious LLM-added gaps) — but `gpt-oss:20b`'s sample-to-sample claim-emission variability means whether the chain reaches `finalize_solve` is non-deterministic; see [`docs/baseline-outputs/README.md`](docs/baseline-outputs/README.md) for the post-Phase-8 artefacts. A full eval re-run is sequenced as a follow-up issue rather than this PR to keep the chat-surface change reviewable.
 
 | Metric | Value |
 |--------|-------|

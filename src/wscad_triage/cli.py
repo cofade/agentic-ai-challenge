@@ -1,14 +1,17 @@
-"""Command-line entry point for wscad-triage (Phase 4 — issue #30).
+"""Command-line entry point for ``wscad-triage``.
 
-Usage::
+Two subcommands::
 
-    wscad-triage <tickets.json> [--out out/] [--kb-dir kb/] [--provider ollama|anthropic|azure]
+    wscad-triage chat  [--out DIR] [--kb-dir DIR] [--provider PROVIDER]
+        Interactive REPL for human-in-the-loop ticket triage (Phase 8 — #65).
 
-For each ticket in *tickets.json* the pipeline is run end-to-end and two
-artefacts are written to the output directory:
+    wscad-triage batch <tickets.json> [--out DIR] [--kb-dir DIR] [--provider PROVIDER]
+        Process every ticket in *tickets.json* end-to-end and write two
+        artefacts per ticket (Phase 4 — #30).
 
-- ``{ticket_id}.json`` — canonical JSON (Pydantic model_dump_json)
-- ``{ticket_id}.txt`` — human-readable text (mirrors Sample_Output.txt)
+The historical positional form ``wscad-triage <tickets.json>`` (no
+``batch`` keyword) still routes to the batch subcommand so existing
+quickstart commands and scripts continue to work.
 """
 
 from __future__ import annotations
@@ -19,21 +22,46 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
+from wscad_triage import chat as chat_module
 from wscad_triage import pipeline
 from wscad_triage.kb import BM25, Embedding, HybridRetriever, load_kb
+from wscad_triage.llm import LLMClient
 from wscad_triage.llm.errors import ConfigurationError
 from wscad_triage.llm.factory import make_client
 from wscad_triage.output import write_json, write_text
 from wscad_triage.schemas import Ticket
 from wscad_triage.settings import LLMProvider, Settings
 
+_SUBCOMMANDS = ("chat", "batch")
+
 
 def main(argv: list[str] | None = None) -> int:
-    """Entry point referenced by ``[project.scripts]``."""
-    args = _parse_args(argv)
+    """Entry point referenced by ``[project.scripts]``.
 
-    # Load tickets
+    Dispatch order:
+
+    1. First arg is ``chat`` → run the REPL.
+    2. First arg is ``batch`` → run the batch processor on the next arg.
+    3. Otherwise → route to the batch processor for backward compatibility
+       with the historical ``wscad-triage tickets.json`` form.
+    """
+    args = list(argv) if argv is not None else sys.argv[1:]
+    if args and args[0] == "chat":
+        return _run_chat(args[1:])
+    if args and args[0] == "batch":
+        return _run_batch(args[1:])
+    return _run_batch(args)
+
+
+# ---------------------------------------------------------------------------
+# Batch subcommand (legacy positional form preserved)
+
+
+def _run_batch(argv: list[str]) -> int:
+    args = _parse_batch_args(argv)
+
     tickets_path = Path(args.tickets_json)
     try:
         raw = json.loads(tickets_path.read_text(encoding="utf-8"))
@@ -43,7 +71,6 @@ def main(argv: list[str] | None = None) -> int:
 
     tickets = [Ticket.model_validate(t) for t in raw]
 
-    # Validate KB directory
     kb_dir = Path(args.kb_dir)
     if not kb_dir.is_dir():
         print(
@@ -53,34 +80,83 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
-    # Build LLM client — pass provider via the alias kwarg understood by pydantic-settings
-    settings: Settings = (
-        Settings(**{"WSCAD_TRIAGE_PROVIDER": args.provider}) if args.provider else Settings()
-    )
     try:
-        llm = make_client(settings)
-        if settings.llm_provider == "ollama":
-            _preflight_ollama(settings.ollama_base_url, settings.ollama_model)
+        llm, retriever = _setup_runtime(args.provider, kb_dir)
     except ConfigurationError as exc:
         print(f"wscad-triage: configuration error: {exc}", file=sys.stderr)
         return 1
 
-    # Build retriever
-    chunks = load_kb(kb_dir)
-    retriever = HybridRetriever(BM25(chunks), Embedding(chunks))
-
-    # Create output directory
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Process tickets
     for ticket in tickets:
         output = pipeline.run(ticket, llm, retriever)
-        write_json(output, out_dir / f"{ticket.ticket_id}.json")
-        write_text(output, out_dir / f"{ticket.ticket_id}.txt")
+        # Sanitise the user-controlled ``ticket_id`` before path
+        # concatenation — same protection the chat REPL applies — so a
+        # hostile tickets.json entry like ``{"ticket_id": "../escape"}``
+        # cannot land artefacts outside ``out_dir``.
+        stem = chat_module.safe_filename(ticket.ticket_id)
+        write_json(output, out_dir / f"{stem}.json")
+        write_text(output, out_dir / f"{stem}.txt")
         print(f"[wscad-triage] {ticket.ticket_id} -> {out_dir}")
 
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Chat subcommand
+
+
+def _run_chat(argv: list[str]) -> int:
+    args = _parse_chat_args(argv)
+
+    kb_dir = Path(args.kb_dir)
+    if not kb_dir.is_dir():
+        print(
+            f"wscad-triage: KB directory not found: {kb_dir}\n"
+            "Run from the project root or pass --kb-dir.",
+            file=sys.stderr,
+        )
+        return 2
+
+    try:
+        llm, retriever = _setup_runtime(args.provider, kb_dir)
+    except ConfigurationError as exc:
+        print(f"wscad-triage: configuration error: {exc}", file=sys.stderr)
+        return 1
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    return chat_module.run_repl(llm=llm, retriever=retriever, out_dir=out_dir)
+
+
+# ---------------------------------------------------------------------------
+# Shared runtime setup
+
+
+def _setup_runtime(provider: str | None, kb_dir: Path) -> tuple[LLMClient, HybridRetriever]:
+    """Build the LLM client and retriever for both subcommands.
+
+    Provider preflight (Ollama health check) runs before any KB work so
+    a misconfigured backend fails fast with a friendly message rather
+    than after the embedder has loaded.
+    """
+    # The alias-keyed kwarg lets pydantic-settings see the override via the
+    # public env-var name; typed as ``dict[str, Any]`` because Settings has
+    # heterogeneously-typed fields and the ``**`` expansion would otherwise
+    # narrow to one field's type.
+    overrides: dict[str, Any] = {}
+    if provider:
+        overrides["WSCAD_TRIAGE_PROVIDER"] = provider
+    settings = Settings(**overrides)
+    llm = make_client(settings)
+    if settings.llm_provider == "ollama":
+        _preflight_ollama(settings.ollama_base_url, settings.ollama_model)
+
+    chunks = load_kb(kb_dir)
+    retriever = HybridRetriever(BM25(chunks), Embedding(chunks))
+    return llm, retriever
 
 
 def _preflight_ollama(base_url: str, model: str) -> None:
@@ -114,19 +190,37 @@ def _preflight_ollama(base_url: str, model: str) -> None:
         )
 
 
-def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    import typing
+# ---------------------------------------------------------------------------
+# Argparse
 
-    providers = list(typing.get_args(LLMProvider))
+
+def _parse_batch_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="wscad-triage",
-        description="Agentic ticket-triage pipeline for WSCAD support tickets.",
+        prog="wscad-triage batch",
+        description="Process every ticket in a JSON file end-to-end.",
     )
     parser.add_argument(
         "tickets_json",
         metavar="tickets.json",
         help="Path to the JSON file containing a list of tickets.",
     )
+    _add_shared_flags(parser)
+    return parser.parse_args(argv)
+
+
+def _parse_chat_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        prog="wscad-triage chat",
+        description="Interactive chat REPL for human-in-the-loop ticket triage.",
+    )
+    _add_shared_flags(parser)
+    return parser.parse_args(argv)
+
+
+def _add_shared_flags(parser: argparse.ArgumentParser) -> None:
+    import typing
+
+    providers = list(typing.get_args(LLMProvider))
     parser.add_argument(
         "--out",
         default="out",
@@ -146,7 +240,9 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         metavar="PROVIDER",
         help=(f"LLM provider: {', '.join(providers)}. Overrides WSCAD_TRIAGE_PROVIDER env var."),
     )
-    return parser.parse_args(argv)
+
+
+__all__ = ["main"]
 
 
 if __name__ == "__main__":

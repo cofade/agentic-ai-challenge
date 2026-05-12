@@ -33,10 +33,19 @@ class ConfidenceConfig(BaseModel):
     thresholds: ConfidenceThresholdsConfig = ConfidenceThresholdsConfig()
 
 
+class ChatConfig(BaseModel):
+    """Knobs for the interactive chat REPL (Phase 8 — issue #65)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    soft_turn_warning_at: int = 8
+
+
 class AppConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     confidence: ConfidenceConfig = ConfidenceConfig()
+    chat: ChatConfig = ChatConfig()
 
 
 def load_app_config(path: Path = Path("config.yaml")) -> AppConfig:
@@ -53,6 +62,7 @@ def load_app_config(path: Path = Path("config.yaml")) -> AppConfig:
 
 __all__ = [
     "AppConfig",
+    "ChatConfig",
     "ConfidenceConfig",
     "ConfidenceThresholdsConfig",
     "RubricWeightsConfig",

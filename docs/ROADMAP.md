@@ -92,6 +92,12 @@ Close every loop before sending the link.
 - **#41 Reviewer-clone smoke test.** Acceptance: from a clean clone in a fresh directory, `cp .env.example .env` (set one API key), `uv sync && uv run wscad-triage tickets/tickets.json` succeeds and produces both JSON and text outputs.
 - **#42 Toggle repo visibility per WSCAD's submission instructions; send the link.** Acceptance: visibility flipped at submission time; submission email includes a one-paragraph orientation pointing at the README quickstart.
 
+## Phase 8 — Interactive chat CLI
+
+Give WSCAD's testers a primary surface to *experience* the system rather than read JSON. The challenge brief says no GUI is required, but the testers will exercise the system manually — the interactive REPL is the cleanest way to demonstrate the clarify→answer→solve loop end-to-end. See [ADR-011](09-architecture-decisions/ADR-011-interactive-chat-cli.md).
+
+- **#65 Interactive chat REPL on top of `pipeline.run`.** Acceptance: `wscad-triage chat` subcommand runs against the default Ollama provider; provider preflight runs before the prompt opens; JSON/free-text auto-detect on first input; `/quit`, `/exit`, `/help`, `/details`, `/reset` slash commands; clarify→answer→solve loop demonstrable; three artefacts saved per turn (`<id>.json`, `<id>.txt`, `<id>.chat.md`); soft-cap warning at `chat.soft_turn_warning_at` (default 8) without forcing exit. Root `README.md` leads with chat usage; batch processing moves below. ADR-011 captures the re-invoke-per-turn design choice and the append-to-text merge model. Pre-merge: full-tree senior-reviewer pass archived to `docs/11-risks-and-technical-debt/senior-reviewer-final.md` (replacing the Phase 7 contents); every P0 and every P1 fixed before merge (P2s deferrable with rationale).
+
 ---
 
 ## Out of scope

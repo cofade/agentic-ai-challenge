@@ -1,6 +1,11 @@
-"""Human-readable text renderer for the pipeline Output (Phase 4 — issue #29).
+"""Human-readable text renderers for the pipeline Output.
 
-Mirrors the format shown in ``tickets/Sample_Output.txt``.
+- :func:`render_text` (Phase 4 — issue #29) mirrors the full format in
+  ``tickets/Sample_Output.txt``. Used by the batch CLI and by the chat
+  REPL's ``/details`` slash command.
+- :func:`render_text_compact` (Phase 8 — issue #65) is a chat-friendly
+  per-turn summary: header line + body + questions. No reasoning trace
+  or source list (those live one ``/details`` away).
 """
 
 from __future__ import annotations
@@ -81,8 +86,40 @@ def write_text(output: Output, path: Path) -> None:
     path.write_text(render_text(output), encoding="utf-8")
 
 
+def render_text_compact(output: Output) -> str:
+    """Chat-friendly per-turn summary.
+
+    Drops the reasoning trace and cited-source list relative to
+    :func:`render_text` so the REPL stays readable when the user fires
+    off five turns in a row. The same information is one ``/details``
+    away (which re-renders via :func:`render_text`).
+    """
+    buf = io.StringIO()
+    w = buf.write
+
+    w(
+        f"[Agent] Category: {output.category}  |  Priority: {output.priority}"
+        f"  |  Confidence: {output.confidence:.2f}\n"
+    )
+    if output.resolution_kind == "solve":
+        w("Proposed solution:\n")
+        w(f"{output.proposed_solution}\n")
+        if output.followup_questions:
+            w("\nFollow-up questions:\n")
+            for q in output.followup_questions:
+                w(f"- {q}\n")
+    else:
+        w(f"Status: {_CLARIFY_STATUS}\n")
+        w(f"Preliminary assessment: {output.preliminary_assessment}\n")
+        if output.followup_questions:
+            w("\nPlease answer one or more of:\n")
+            for i, q in enumerate(output.followup_questions, start=1):
+                w(f"  {i}. {q}\n")
+    return buf.getvalue()
+
+
 def _format_step(step: ReasoningStep) -> str:
     return f"- [{step.actor}] {step.action}: {step.rationale}\n"
 
 
-__all__ = ["render_text", "write_text"]
+__all__ = ["render_text", "render_text_compact", "write_text"]
